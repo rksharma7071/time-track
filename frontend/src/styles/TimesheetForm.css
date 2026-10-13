@@ -1,0 +1,257 @@
+
+* {
+  box-sizing: border-box;
+}
+
+.timesheet-container {
+  display: grid;
+  grid-template-columns: 500px minmax(0, 1fr);
+  gap: 24px;
+  /* min-height: 100vh; */
+  padding: 32px;
+  background: #f5f7fb;
+  color: #1e293b;
+}
+
+/* Common section styles */
+.timesheet-form-section,
+.task-list-section {
+  min-width: 0;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.section-header {
+  margin-bottom: 24px;
+}
+
+.section-header h1,
+.section-header h2 {
+  margin: 0 0 8px;
+  color: #172033;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.section-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* Timesheet form */
+.timesheet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  outline: none;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 13px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #3157b7;
+  box-shadow: 0 0 0 3px rgba(49, 87, 183, 0.1);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #94a3b8;
+}
+
+.form-group textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #3157b7;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.submit-btn:hover {
+  background: #244493;
+}
+
+.submit-btn:active {
+  transform: scale(0.98);
+}
+
+/* Task list table */
+.task-list-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.task-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.task-table {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.task-table thead {
+  background: #f8fafc;
+}
+
+.task-table th {
+  padding: 15px 14px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.task-table td {
+  padding: 15px 14px;
+  border-top: 1px solid #edf0f5;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+  vertical-align: top;
+}
+
+.task-table tbody tr {
+  transition: background 0.2s;
+}
+
+.task-table tbody tr:hover {
+  background: #f8faff;
+}
+
+.task-type-badge {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #e8efff;
+  color: #3157b7;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.task-description {
+  min-width: 160px;
+  max-width: 260px;
+  overflow-wrap: anywhere;
+}
+
+.empty-task-list {
+  padding: 40px 16px !important;
+  color: #94a3b8 !important;
+  text-align: center;
+}
+
+/* Task summary */
+.task-summary {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Tablet */
+@media (max-width: 1100px) {
+  .timesheet-container {
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 18px;
+    padding: 24px;
+  }
+
+  .timesheet-form-section,
+  .task-list-section {
+    padding: 20px;
+  }
+}
+
+/* Mobile and smaller tablets */
+@media (max-width: 800px) {
+  .timesheet-container {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .timesheet-form-section,
+  .task-list-section {
+    padding: 20px;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .timesheet-container {
+    gap: 16px;
+    padding: 12px;
+  }
+
+  .timesheet-form-section,
+  .task-list-section {
+    padding: 16px;
+    border-radius: 10px;
+  }
+
+  .section-header h1,
+  .section-header h2 {
+    font-size: 20px;
+  }
+
+  .task-summary {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
