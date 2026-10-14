@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "../styles/Login.css";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import API from "../data/api.js";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -12,33 +12,46 @@ const Login = () => {
     email: "",
     password: "",
   });
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
   const { setUser } = useAuth();
-  
-  const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError("");
+    setSuccess("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
     try {
-      console.log("Login Data:", formData);
-      const res = await axios.post(`${API}/api/auth/login`, formData, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true,
-      });
-      // Update auth context so ProtectedRoute sees the user immediately
+      const res = await axios.post(
+        `${API}/api/auth/login`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          withCredentials: true,
+        }
+      );
+
       setUser(res.data.user);
+      setSuccess(res.data.message || "Login successful!");
       navigate("/");
     } catch (error) {
-      console.error("Login failed:", error);
+      setError(error.response?.data?.message || "Login failed. Please check your credentials and try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,8 +97,10 @@ const Login = () => {
               <button
                 type="button"
                 className="password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={
+                  showPassword ? "Hide password" : "Show password"
+                }
               >
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
@@ -101,14 +116,17 @@ const Login = () => {
             <a href="/forgot-password">Forgot password?</a>
           </div>
 
-          <button type="submit" className="login-button">
-            Login
+          {error && (<p className="login-message login-error" role="alert">{error}</p>)}
+          {success && (<p className="login-message login-success" role="status">{success}</p>)}
+
+          <button
+            type="submit"
+            className="login-button"
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
-
-        {/* <p className="login-footer">
-          Don't have an account? <a href="/register">Create account</a>
-        </p> */}
       </div>
     </div>
   );

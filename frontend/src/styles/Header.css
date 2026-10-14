@@ -1,16 +1,18 @@
+/* ================ HEADER ================ */
+
 .app-header {
   position: sticky;
   top: 0;
   z-index: 100;
   width: 100%;
-  background: #ffffff;
+  background: var(--color-card);
   border-bottom: 1px solid #e5eaf2;
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
 }
 
 .header-container {
   max-width: 1440px;
-  min-height: 72px;
+  min-height: 64px;
   margin: 0 auto;
   padding: 0 32px;
   display: flex;
@@ -23,7 +25,7 @@
   display: inline-flex;
   align-items: center;
   gap: 11px;
-  color: #172033;
+  color: var(--color-heading);
   font-size: 21px;
   font-weight: 700;
   text-decoration: none;
@@ -37,7 +39,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: #3157b7;
+  background: var(--color-primary);
   color: #ffffff;
   font-size: 21px;
   font-weight: 700;
@@ -47,87 +49,246 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 
 .nav-link {
   padding: 10px 15px;
-  border-radius: 8px;
-  color: #64748b;
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
   font-size: 14px;
-  /* font-weight: 600; */
   text-decoration: none;
   transition: background 0.2s, color 0.2s;
 }
 
 .nav-link:hover {
   background: #f1f5f9;
-  color: #3157b7;
+  color: var(--color-primary);
 }
 
 .nav-link.active {
-  background: #eaf0ff;
-  color: #3157b7;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
 }
 
-.nav-link-logout{
-  background-color: #ff4e4e;
-  color: #ffffff;
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-left: 20px;
+  border-left: 1px solid #e5eaf2;
 }
 
-.register-link {
-  margin-left: 4px;
-  background: #3157b7;
-  color: #ffffff;
+.header-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
-.register-link:hover,
-.register-link.active {
-  background: #244493;
-  color: #ffffff;
+.header-welcome-label {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 500;
 }
 
-/* Tablet */
-@media (max-width: 650px) {
+.header-welcome-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-heading);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.header-welcome-role {
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.header-logout-btn {
+  padding: 9px 15px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: #dc2626;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.header-logout-btn:hover {
+  background: var(--color-error-bg);
+  border-color: #fca5a5;
+}
+
+.header-logout-btn--full {
+  width: 100%;
+  padding: 12px 15px;
+  font-size: 13px;
+}
+
+.header-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 42px;
+  height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.header-toggle:hover {
+  background: #f8fafc;
+  border-color: var(--color-primary);
+}
+
+.header-toggle span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  border-radius: 2px;
+  background: var(--color-heading);
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.header-toggle.is-open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.header-toggle.is-open span:nth-child(2) {
+  opacity: 0;
+}
+
+.header-toggle.is-open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.header-mobile-panel {
+  display: none;
+}
+
+@media (max-width: 900px) {
   .header-container {
-    min-height: 68px;
-    padding: 12px 18px;
-    flex-wrap: wrap;
-    gap: 12px;
+    min-height: 64px;
+    padding: 0 20px;
+    gap: 16px;
+  }
+
+  .header-nav,
+  .header-user {
+    display: none;
+  }
+
+  .header-toggle {
+    display: flex;
+  }
+
+  .header-mobile-panel {
+    display: block;
+    position: fixed;
+    inset: 64px 0 0 0;
+    background: rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 99;
+  }
+
+  .header-mobile-panel.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .header-mobile-inner {
+    max-width: 340px;
+    margin-left: auto;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 22px;
+    background: var(--color-card);
+    border-left: 1px solid var(--color-border-light);
+    box-shadow: -8px 0 24px rgba(15, 23, 42, 0.08);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+  }
+
+  .header-mobile-panel.is-open .header-mobile-inner {
+    transform: translateX(0);
+  }
+
+  .header-mobile-welcome {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 16px;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    background: #f8fafc;
+  }
+
+  .header-mobile-welcome .header-welcome-label {
+    font-size: 11px;
+  }
+
+  .header-mobile-welcome .header-welcome-name {
+    font-size: 15px;
+  }
+
+  .header-mobile-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .header-mobile-nav .nav-link {
+    padding: 12px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .header-container {
+    padding: 0 14px;
+    min-height: 60px;
+  }
+
+  .header-mobile-panel {
+    inset: 60px 0 0 0;
   }
 
   .header-logo {
-    font-size: 19px;
+    font-size: 18px;
+    gap: 9px;
   }
 
-  .header-nav {
-    width: 100%;
-    gap: 5px;
-    overflow-x: auto;
-    padding-bottom: 2px;
+  .logo-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
   }
 
-  .nav-link {
-    padding: 9px 12px;
-    font-size: 13px;
-    white-space: nowrap;
-  }
-
-  .register-link {
-    margin-left: 0;
-  }
-}
-
-@media (max-width: 360px) {
-  .header-container {
-    padding: 12px;
-  }
-
-  .header-nav {
-    gap: 2px;
-  }
-
-  .nav-link {
-    padding: 8px;
-    font-size: 12px;
+  .header-mobile-inner {
+    max-width: 100%;
+    border-left: none;
   }
 }

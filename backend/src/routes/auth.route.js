@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post("/register", register);
 router.post("/login", login);
-router.post("/logout", verifyToken, logout);
-router.get("/me", verifyToken, getCurrentUser);
+router.post("/logout", verifyToken(["admin", "manager", "employee"]), logout);
+router.get("/me", verifyToken(["admin", "manager", "employee"]), getCurrentUser);
 
 export default router;

@@ -5,6 +5,7 @@ import cors from "cors";
 import authRouter from "./routes/auth.route.js";
 import userRouter from "./routes/user.route.js";
 import projectRouter from "./routes/project.route.js";
+import taskRoutes from "./routes/task.routes.js";
 
 const app = express();
 
@@ -26,5 +27,6 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/project", projectRouter);
+app.use("/api/tasks", taskRoutes);
 
 export default app;

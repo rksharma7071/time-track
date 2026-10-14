@@ -4,6 +4,191 @@
   box-sizing: border-box;
 }
 
+:root {
+  --color-primary: #3157b7;
+  --color-primary-dark: #244493;
+  --color-primary-light: #eaf0ff;
+
+  --color-text: #1e293b;
+  --color-heading: #172033;
+  --color-label: #334155;
+  --color-muted: #64748b;
+  --color-placeholder: #94a3b8;
+
+  --color-border: #dbe2ea;
+  --color-border-light: #e2e8f0;
+  --color-bg: #f5f7fb;
+  --color-card: #ffffff;
+
+  --color-error-bg: #fef2f2;
+  --color-error: #b91c1c;
+  --color-success-bg: #ecfdf5;
+  --color-success: #047857;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+
+  --shadow-card: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
 body {
   font-family: "Roboto", sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* =========================================================
+   SHARED FORM STYLES  (User + Project use these identically)
+   ========================================================= */
+
+.user-form,
+.project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.user-form-group,
+.project-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.user-form-group label,
+.project-form-group label {
+  color: var(--color-label);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Single-line inputs + selects — identical height everywhere */
+.user-form-group input,
+.user-form-group select,
+.project-form-group input,
+.project-form-group select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Textareas need padding + auto height instead of fixed height */
+.user-form-group textarea,
+.project-form-group textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 85px;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Multi-select — auto height, inner option padding */
+.user-form-group select[multiple],
+.project-form-group select[multiple] {
+  height: auto;
+  padding: 6px;
+}
+
+.user-form-group select[multiple] option,
+.project-form-group select[multiple] option {
+  padding: 7px;
+  border-radius: 4px;
+}
+
+/* Focus ring — identical everywhere */
+.user-form-group input:focus,
+.user-form-group select:focus,
+.user-form-group textarea:focus,
+.project-form-group input:focus,
+.project-form-group select:focus,
+.project-form-group textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(49, 87, 183, 0.1);
+}
+
+/* Placeholder — identical everywhere */
+.user-form-group input::placeholder,
+.user-form-group textarea::placeholder,
+.project-form-group input::placeholder,
+.project-form-group textarea::placeholder {
+  color: var(--color-placeholder);
+}
+
+/* Helper text — identical everywhere */
+.user-form-group small,
+.project-form-group small {
+  color: var(--color-placeholder);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Submit button — identical everywhere */
+.user-submit-btn,
+.project-submit-btn {
+  width: 100%;
+  min-height: 36px;
+  margin-top: 4px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.user-submit-btn:hover,
+.project-submit-btn:hover {
+  background: var(--color-primary-dark);
+}
+
+.user-submit-btn:active,
+.project-submit-btn:active {
+  transform: scale(0.98);
+}
+
+/* Messages — identical everywhere */
+.user-message,
+.project-error,
+.project-success {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.user-error,
+.project-error {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.user-success,
+.project-success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }

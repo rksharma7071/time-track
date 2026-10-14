@@ -1,9 +1,8 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
+import API from "../data/api";
 
 const AuthContext = createContext(null);
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -12,7 +11,7 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = async () => {
     try {
       const response = await fetch(
-        `${API_URL}/api/auth/me`,
+        `${API}/api/auth/me`,
         {
           method: "GET",
           credentials: "include",
@@ -40,14 +39,36 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   };
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch(
+        `${API}/api/auth/logout`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Logout failed.");
+      }
+
+      setUser(null);
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error("Logout error:", error.message);
+    }
+  }
+
   useEffect(() => {
     checkAuth();
   }, []);
 
   return (
-    <AuthContext.Provider
-      value={{ user, setUser, loading, checkAuth }}
-    >
+    <AuthContext.Provider value={{ user, setUser, loading, checkAuth, handleLogout }}>
       {children}
     </AuthContext.Provider>
   );

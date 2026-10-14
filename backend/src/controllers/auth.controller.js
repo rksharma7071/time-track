@@ -103,16 +103,18 @@ export const logout = async (req, res) => {
       path: "/",
     });
   };
+  console.log("Step-01");
 
   try {
     if (token) {
       try {
+        console.log("Step-02");
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const tokenHash = createHash("sha256")
           .update(token)
           .digest("hex");
-
+        console.log("Step-03");
         if (decoded.exp) {
           await BlacklistedToken.updateOne(
             { tokenHash },
@@ -125,6 +127,8 @@ export const logout = async (req, res) => {
             { upsert: true }
           );
         }
+
+        console.log("Step-04");
       } catch (error) {
         if (error.name !== "JsonWebTokenError" && error.name !== "TokenExpiredError" && error.name !== "NotBeforeError") {
           throw error;
@@ -132,7 +136,10 @@ export const logout = async (req, res) => {
       }
     }
 
+    console.log("Step-05");
     clearCookie();
+
+    console.log("Step-06");
     return res.status(200).json({ message: "Logout successful." });
   } catch (error) {
     console.error("Logout error:", error.message);

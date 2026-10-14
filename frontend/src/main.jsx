@@ -5,6 +5,7 @@ import {
   createBrowserRouter,
   RouterProvider,
   Navigate,
+  Outlet,
 } from "react-router-dom";
 
 import "./styles/index.css";
@@ -13,13 +14,15 @@ import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import PublicRoute from "./components/PublicRoute.jsx";
 
-import Base from "./components/Base.jsx";
+import Base from "./pages/Base.jsx";
 import App from "./App.jsx";
-import Login from "./components/Login.jsx";
-import Register from "./components/Register.jsx";
-import Project from "./components/Project.jsx";
-import User from "./components/User.jsx";
-import { getAllProjects, getAllUsers, getProjectsAndUsers } from "./data/product.js";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import Project from "./pages/Project.jsx";
+import User from "./pages/User.jsx";
+import { getProjectsAndUsers } from "./data/project.js";
+import { usersLoader } from "./data/user.js";
+import { getTasksAndUsers } from "./data/task.js";
 
 const NotFoundRedirect = () => {
   const { user, loading } = useAuth();
@@ -29,58 +32,67 @@ const NotFoundRedirect = () => {
   return <Navigate to={user ? "/" : "/login"} replace />;
 };
 
+const AuthLayout = () => (
+  <AuthProvider>
+    <Outlet />
+  </AuthProvider>
+);
+
 const router = createBrowserRouter([
-  // Private routes: only logged-in users
   {
-    element: <ProtectedRoute />,
+    element: <AuthLayout />,
     children: [
       {
-        path: "/",
-        element: <Base />,
+        element: <ProtectedRoute />,
         children: [
           {
-            index: true,
-            element: <App />,
-          },
-          {
-            path: "projects",
-            element: <Project />,
-            loader: getProjectsAndUsers
-          },
-          {
-            path: "users",
-            element: <User />,
-            loader: getAllUsers
+            path: "/",
+            element: <Base />,
+            children: [
+              {
+                index: true,
+                element: <App />,
+                loader: getTasksAndUsers
+              },
+              {
+                path: "projects",
+                element: <Project />,
+                loader: getProjectsAndUsers,
+              },
+              {
+                path: "users",
+                element: <User />,
+                loader: usersLoader,
+              },
+            ],
           },
         ],
       },
-    ],
-  },
 
-  {
-    element: <PublicRoute />,
-    children: [
       {
-        path: "/login",
-        element: <Login />,
+        element: <PublicRoute />,
+        children: [
+          {
+            path: "/login",
+            element: <Login />,
+          },
+          {
+            path: "/register",
+            element: <Register />,
+          },
+        ],
       },
+
       {
-        path: "/register",
-        element: <Register />,
+        path: "*",
+        element: <NotFoundRedirect />,
       },
     ],
-  },
-
-  {
-    path: "*",
-    element: <NotFoundRedirect />,
   },
 ]);
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>
+    <RouterProvider router={router} />
   </StrictMode>
 );

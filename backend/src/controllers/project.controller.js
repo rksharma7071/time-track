@@ -119,7 +119,7 @@ export const createProject = async (req, res) => {
 
     const createdBy = req.user?.id || req.user?._id;
     console.log("-----------------------------------------");
-    console.log("Create Product: ", req.user);
+    console.log("Create Project: ", req.user);
     console.log("-----------------------------------------");
 
     if (!createdBy || !mongoose.isValidObjectId(createdBy)) {
@@ -159,6 +159,22 @@ export const createProject = async (req, res) => {
       return res.status(400).json({ message: error.message });
     }
 
+    return res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+export const deleteProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const project = await Project.findByIdAndDelete(id);
+
+    if (!project) {
+      return res.status(404).json({ message: "Project not found." });
+    }
+
+    return res.status(200).json({ message: "Project deleted successfully.", project });
+  } catch (error) {
+    console.error("Delete Project error:", error.message);
     return res.status(500).json({ message: "Internal server error." });
   }
 };
