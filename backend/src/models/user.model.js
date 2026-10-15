@@ -1,14 +1,27 @@
 import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true },
-  name: { type: String, required: true, trim: true },
-  role: { type: String, default: "employee", enum: ["employee", "manager", "admin"] },
-}, {
-  timestamps: true,
-});
+export const USER_ROLES = ["admin", "manager", "employee"];
 
-const User = mongoose.model("User", userSchema);
+const userSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 100 },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email address."],
+    },
+    password: { type: String, required: true },
+    role: { type: String, enum: USER_ROLES, default: "employee", index: true },
+    managerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    isActive: { type: Boolean, default: true },
+    passwordChangedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
 
-export default User;
+userSchema.index({ managerId: 1, role: 1 });
+
+export default mongoose.model("User", userSchema);

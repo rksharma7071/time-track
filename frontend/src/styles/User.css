@@ -533,3 +533,49 @@
     justify-content: flex-start;
   }
 }
+
+/* Form action row — submit + cancel */
+.user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.user-actions .user-submit-btn {
+  margin-top: 0;
+}
+
+.user-cancel-btn {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  color: var(--color-label);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.user-cancel-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.user-cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Row highlight while editing */
+.user-table tbody tr.is-editing {
+  background: var(--color-primary-light);
+}
+
+.user-table tbody tr.is-editing:hover {
+  background: #dde7fb;
+} 

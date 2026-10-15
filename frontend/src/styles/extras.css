@@ -1,0 +1,264 @@
+/* Additions used by the backend-aligned pages. Imported once in main.jsx. */
+
+.auth-loading {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.form-hint,
+.form-note {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.form-note {
+  margin: 0;
+  font-size: 12px;
+}
+
+.muted-text {
+  color: var(--color-placeholder);
+  font-size: 11px;
+}
+
+.text-capitalize {
+  text-transform: capitalize;
+}
+
+input:disabled,
+select:disabled {
+  background: #f1f5f9 !important;
+  color: var(--color-muted) !important;
+  cursor: not-allowed;
+}
+
+/* Info message (Permission page) */
+.timesheet-info {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #c7d8fe;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Server-side filter bar (My Tasks) */
+.list-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.list-filters select,
+.list-filters input[type="date"] {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.list-filters select {
+  min-width: 140px;
+  flex: 1 1 140px;
+}
+
+.list-filters select:focus,
+.list-filters input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(49, 87, 183, 0.1);
+}
+
+.list-filter-date {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.list-filters-clear {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.list-filters-clear:hover {
+  background: var(--color-primary-light);
+}
+
+/* Editing row highlight for task / permission tables */
+.task-table tbody tr.is-editing {
+  background: var(--color-primary-light);
+}
+
+/* Disabled row-menu item */
+.row-menu-item:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Planned status badge on tasks */
+.task-status-badge.status-planned {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Active / deactivated user pill */
+.status-pill {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-pill.is-active {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-pill.is-inactive {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Hours used vs allocated (Projects) */
+.hours-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 110px;
+  white-space: nowrap;
+}
+
+.hours-meter-track {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.hours-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--color-primary);
+}
+
+/* Project chips (Permission list) */
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 340px;
+}
+
+.chip {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Account page */
+.account-page {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.account-card {
+  width: 100%;
+  max-width: 480px;
+}
+
+.account-subheading {
+  margin: 0;
+  color: var(--color-heading);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Route error */
+.route-error {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding: 24px;
+}
+
+.route-error-card {
+  max-width: 440px;
+  padding: 28px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.route-error-card h1 {
+  margin-bottom: 10px;
+  color: var(--color-heading);
+  font-size: 20px;
+}
+
+.route-error-card p {
+  margin-bottom: 20px;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.route-error-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.route-error-actions button {
+  padding: 9px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+  color: var(--color-label);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.route-error-actions button:first-child {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.login-footer {
+  margin-top: 22px;
+}

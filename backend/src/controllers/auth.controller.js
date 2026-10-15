@@ -1,168 +1,135 @@
-import User from "../models/user.model.js";
-import BlacklistedToken from "../models/blacklistedToken.model.js";
 import bcrypt from "bcrypt";
-import { createHash } from "crypto";
 import jwt from "jsonwebtoken";
+import User from "../models/user.model.js";
+import { EMAIL_REGEX, normalizeEmail, validatePassword } from "../utils/validators.js";
+import { blacklistToken, JWT_ERRORS } from "../utils/token.js";
+import { toPublicUser } from "../utils/serializers.js";
+
+const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+const cookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/",
+});
+
+const DUMMY_HASH = bcrypt.hashSync("timing-safe-dummy-password", 10);
 
 export const register = async (req, res) => {
-  try {
-    const { name, email, password, role = "employee" } = req.body;
+  const name = String(req.body.name ?? "").trim();
+  const email = normalizeEmail(req.body.email);
+  const { password } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Name, email and password are required." });
-    }
-
-    const existUser = await User.findOne({ email });
-
-    if (existUser) {
-      return res.status(400).json({ message: "Email id already registered." });
-    }
-
-    const hashPassword = await bcrypt.hash(password, 10);
-
-    await User.create({
-      name,
-      email,
-      password: hashPassword,
-      role
-    })
-
-    return res.status(201).json({ message: "User created Successfully." })
-  } catch (error) {
-    if (error.code === 11000) {
-      return res.status(409).json({ message: "Email id already registered." });
-    }
-    console.error("Register error:", error.message);
-    return res.status(500).json({ message: "Internal server error." });
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: "Name, email and password are required." });
   }
-}
+
+  if (!EMAIL_REGEX.test(email)) {
+    return res.status(400).json({ message: "Please enter a valid email address." });
+  }
+
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return res.status(400).json({ message: passwordError });
+  }
+
+  if (await User.exists({ email })) {
+    return res.status(409).json({ message: "Email id already registered." });
+  }
+
+  const user = await User.create({
+    name,
+    email,
+    password: await bcrypt.hash(password, 10),
+    role: "employee",
+  });
+
+  return res.status(201).json({ message: "User created successfully.", user: toPublicUser(user) });
+};
 
 export const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+  const email = normalizeEmail(req.body.email);
+  const { password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required." });
-    }
-
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(400).json({ message: "Email id is not registered." });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
-      return res.status(400).json({ message: "Password is incorrect." });
-    }
-
-    const token = jwt.sign(
-      {
-        _id: user._id,
-        email: user.email,
-        role: user.role
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "7d"
-      }
-    )
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/",
-    })
-
-
-    return res.status(200).json({
-      message: "Login successful.",
-      user: {
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    console.error("Login error:", error.message);
-    return res.status(500).json({ message: "Internal server error.", error: error });
+  if (!email || typeof password !== "string" || !password) {
+    return res.status(400).json({ message: "Email and password are required." });
   }
-}
+
+  const user = await User.findOne({ email });
+  const passwordMatches = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
+
+  if (!user || !passwordMatches) {
+    return res.status(401).json({ message: "Invalid email or password." });
+  }
+
+  if (user.isActive === false) {
+    return res.status(403).json({ message: "Your account has been deactivated. Please contact an administrator." });
+  }
+
+  const token = jwt.sign({ _id: user._id, role: user.role }, process.env.JWT_SECRET, {
+    expiresIn: "7d",
+  });
+
+  res.cookie("token", token, { ...cookieOptions(), maxAge: TOKEN_TTL_MS });
+
+  return res.status(200).json({ message: "Login successful.", user: toPublicUser(user) });
+};
 
 export const logout = async (req, res) => {
   const token = req.cookies?.token;
 
-  const clearCookie = () => {
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-    });
-  };
-  console.log("Step-01");
+  res.clearCookie("token", cookieOptions());
 
-  try {
-    if (token) {
-      try {
-        console.log("Step-02");
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-        const tokenHash = createHash("sha256")
-          .update(token)
-          .digest("hex");
-        console.log("Step-03");
-        if (decoded.exp) {
-          await BlacklistedToken.updateOne(
-            { tokenHash },
-            {
-              $setOnInsert: {
-                tokenHash,
-                expiresAt: new Date(decoded.exp * 1000),
-              },
-            },
-            { upsert: true }
-          );
-        }
-
-        console.log("Step-04");
-      } catch (error) {
-        if (error.name !== "JsonWebTokenError" && error.name !== "TokenExpiredError" && error.name !== "NotBeforeError") {
-          throw error;
-        }
-      }
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      await blacklistToken(token, decoded.exp);
+    } catch (error) {
+      if (!JWT_ERRORS.includes(error.name)) throw error;
     }
-
-    console.log("Step-05");
-    clearCookie();
-
-    console.log("Step-06");
-    return res.status(200).json({ message: "Logout successful." });
-  } catch (error) {
-    console.error("Logout error:", error.message);
-    clearCookie();
-    return res.status(500).json({ message: "Unable to complete logout. Please try again." });
   }
+
+  return res.status(200).json({ message: "Logout successful." });
 };
 
 export const getCurrentUser = async (req, res) => {
-  try {
-    return res.status(200).json({
-      message: "User authenticated successfully.",
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        role: req.user.role,
-      },
-    });
-  } catch (error) {
-    console.error("Get current user error:", error.message);
+  const user = await User.findById(req.user.id).select("-password").lean();
 
-    return res.status(500).json({
-      message: "Internal server error.",
-    });
+  return res.status(200).json({
+    message: "User authenticated successfully.",
+    user: toPublicUser(user),
+  });
+};
+
+export const changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: "Current password and new password are required." });
   }
+
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ message: passwordError });
+  }
+
+  if (currentPassword === newPassword) {
+    return res.status(400).json({ message: "New password must be different from the current password." });
+  }
+
+  const user = await User.findById(req.user.id);
+
+  if (!(await bcrypt.compare(currentPassword, user.password))) {
+    return res.status(400).json({ message: "Current password is incorrect." });
+  }
+
+  user.password = await bcrypt.hash(newPassword, 10);
+  user.passwordChangedAt = new Date();
+  await user.save();
+
+  await blacklistToken(req.token, req.tokenExp);
+  res.clearCookie("token", cookieOptions());
+
+  return res.status(200).json({ message: "Password changed successfully. Please login again." });
 };

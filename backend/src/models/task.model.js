@@ -1,11 +1,10 @@
 import mongoose from "mongoose";
 
-export const TASK_TYPES = ["development", "bug-fix", "testing", "meeting", "research", "documentation", "deployment", "other",];
+export const TASK_TYPES = ["development", "bug-fix", "testing", "meeting", "research", "documentation", "deployment", "other"];
 export const TASK_STATUSES = ["planned", "active", "on-hold", "completed", "cancelled"];
 
 const taskSchema = new mongoose.Schema(
   {
-    title: { type: String, trim: true, maxlength: 160, default: "" },
     project: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true, index: true },
     employee: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     type: { type: String, enum: TASK_TYPES, default: "development" },
@@ -40,7 +39,7 @@ taskSchema.index({ project: 1, date: -1 });
 taskSchema.index({ employee: 1, date: -1 });
 taskSchema.index({ project: 1, status: 1 });
 taskSchema.index({ employee: 1, status: 1 });
-taskSchema.index({ title: "text", description: "text" });
+taskSchema.index({ description: "text" });
 
 taskSchema.virtual("isLogged").get(function () {
   return this.hours > 0;

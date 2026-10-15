@@ -1,30 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getId } from "../utils/helpers.js";
 import "../styles/MembersSelect.css";
 
 /**
- * MembersSelect
- * Searchable multi-select for picking users.
- *
- * Props:
- *  - options:  [{ _id, name, role?, email? }]
- *  - value:    array of selected _ids
- *  - onChange: (nextIds: string[]) => void
- *  - placeholder
- *  - maxSelected (optional) — soft limit
+ * Searchable multi-select for users. Works with both `id` (users API)
+ * and `_id` (populated refs) shapes.
  */
 const MembersSelect = ({
   options = [],
   value = [],
   onChange,
   placeholder = "Search and select members...",
-  maxSelected,
+  disabled = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapperRef = useRef(null);
   const searchRef = useRef(null);
 
-  // Close on outside click / Escape
   useEffect(() => {
     if (!open) return;
 
@@ -38,24 +31,16 @@ const MembersSelect = ({
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("touchstart", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    const timer = setTimeout(() => searchRef.current?.focus(), 0);
 
     return () => {
+      clearTimeout(timer);
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("touchstart", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
 
-  // Autofocus the search box when the panel opens
-  useEffect(() => {
-    if (open) {
-      setQuery("");
-      const t = setTimeout(() => searchRef.current?.focus(), 0);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
-
-  // Only show options that match the query.
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options;
@@ -67,67 +52,62 @@ const MembersSelect = ({
     );
   }, [options, query]);
 
-  const selectedSet = useMemo(() => new Set(value), [value]);
+  const selectedSet = useMemo(() => new Set(value.map(String)), [value]);
   const selectedOptions = useMemo(
-    () => options.filter((u) => selectedSet.has(u._id)),
+    () => options.filter((u) => selectedSet.has(getId(u))),
     [options, selectedSet]
   );
 
   const toggle = (id) => {
-    if (selectedSet.has(id)) {
-      onChange?.(value.filter((v) => v !== id));
-    } else {
-      if (maxSelected && value.length >= maxSelected) return;
-      onChange?.([...value, id]);
-    }
+    if (selectedSet.has(id)) onChange?.(value.filter((v) => String(v) !== id));
+    else onChange?.([...value, id]);
   };
 
-  const removeOne = (id) => {
-    onChange?.(value.filter((v) => v !== id));
+  const toggleOpen = () => {
+    setQuery("");
+    setOpen((v) => !v);
   };
 
   return (
     <div className="members-select" ref={wrapperRef}>
-      {/* Trigger */}
       <button
         type="button"
         className={`members-select-trigger ${open ? "is-open" : ""}`}
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
+        disabled={disabled}
       >
         <span className="members-select-value">
           {selectedOptions.length === 0 ? (
             <span className="members-select-placeholder">{placeholder}</span>
           ) : (
-            <span className="members-select-count">
-              {selectedOptions.length} selected
-            </span>
+            <span className="members-select-count">{selectedOptions.length} selected</span>
           )}
         </span>
         <span className="members-select-caret" aria-hidden="true">▾</span>
       </button>
 
-      {/* Selected chips */}
       {selectedOptions.length > 0 && (
         <div className="members-select-chips">
           {selectedOptions.map((u) => (
-            <span className="members-chip" key={u._id}>
+            <span className="members-chip" key={getId(u)}>
               <span className="members-chip-name">{u.name}</span>
-              <button
-                type="button"
-                className="members-chip-remove"
-                aria-label={`Remove ${u.name}`}
-                onClick={() => removeOne(u._id)}
-              >
-                ×
-              </button>
+              {!disabled && (
+                <button
+                  type="button"
+                  className="members-chip-remove"
+                  aria-label={`Remove ${u.name}`}
+                  onClick={() => toggle(getId(u))}
+                >
+                  ×
+                </button>
+              )}
             </span>
           ))}
         </div>
       )}
 
-      {/* Dropdown panel */}
       {open && (
         <div className="members-select-panel" role="listbox">
           <div className="members-select-search">
@@ -140,12 +120,7 @@ const MembersSelect = ({
               aria-label="Search members"
             />
             {query && (
-              <button
-                type="button"
-                className="members-select-clear"
-                aria-label="Clear search"
-                onClick={() => setQuery("")}
-              >
+              <button type="button" className="members-select-clear" aria-label="Clear search" onClick={() => setQuery("")}>
                 ×
               </button>
             )}
@@ -153,32 +128,22 @@ const MembersSelect = ({
 
           <div className="members-select-list">
             {filtered.length === 0 ? (
-              <p className="members-select-empty">No members match "{query}".</p>
+              <p className="members-select-empty">
+                {options.length === 0 ? "No users available." : `No members match "${query}".`}
+              </p>
             ) : (
               filtered.map((u) => {
-                const checked = selectedSet.has(u._id);
+                const id = getId(u);
+                const checked = selectedSet.has(id);
                 return (
-                  <label
-                    key={u._id}
-                    className={`members-select-option ${checked ? "is-checked" : ""}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggle(u._id)}
-                    />
-                    <span className="members-select-avatar">
-                      {u.name?.charAt(0).toUpperCase()}
-                    </span>
+                  <label key={id} className={`members-select-option ${checked ? "is-checked" : ""}`}>
+                    <input type="checkbox" checked={checked} onChange={() => toggle(id)} />
+                    <span className="members-select-avatar">{u.name?.charAt(0).toUpperCase()}</span>
                     <span className="members-select-info">
                       <strong>{u.name}</strong>
                       {u.email && <small>{u.email}</small>}
                     </span>
-                    {u.role && (
-                      <span className={`members-select-role role-${u.role}`}>
-                        {u.role}
-                      </span>
-                    )}
+                    {u.role && <span className={`members-select-role role-${u.role}`}>{u.role}</span>}
                   </label>
                 );
               })
@@ -188,11 +153,7 @@ const MembersSelect = ({
           <div className="members-select-footer">
             <span>{value.length} selected</span>
             {value.length > 0 && (
-              <button
-                type="button"
-                className="members-select-clearall"
-                onClick={() => onChange?.([])}
-              >
+              <button type="button" className="members-select-clearall" onClick={() => onChange?.([])}>
                 Clear all
               </button>
             )}

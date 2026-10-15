@@ -1,0 +1,1808 @@
+================================================================================
+BACKEND CODE BUNDLE (Node.js)
+Generated: 2026-10-15T17:21:51.724Z
+Root: D:\Current Project\timesheet\backend
+Total files: 26
+================================================================================
+
+PROJECT STRUCTURE
+--------------------------------------------------------------------------------
+├── src/
+│   ├── config/
+│   │   └── db.js
+│   ├── controllers/
+│   │   ├── auth.controller.js
+│   │   ├── permission.controller.js
+│   │   ├── project.controller.js
+│   │   ├── task.controller.js
+│   │   └── user.controller.js
+│   ├── middleware/
+│   │   ├── auth.middleware.js
+│   │   └── error.middleware.js
+│   ├── models/
+│   │   ├── blacklistedToken.model.js
+│   │   ├── permission.model.js
+│   │   ├── project.model.js
+│   │   ├── task.model.js
+│   │   └── user.model.js
+│   ├── routes/
+│   │   ├── auth.route.js
+│   │   ├── permission.routes.js
+│   │   ├── project.route.js
+│   │   ├── task.routes.js
+│   │   └── user.route.js
+│   ├── utils/
+│   │   ├── access.js
+│   │   ├── hours.js
+│   │   ├── serializers.js
+│   │   ├── token.js
+│   │   └── validators.js
+│   └── app.js
+├── package.json
+└── server.js
+
+================================================================================
+FILE CONTENTS
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: package.json
+────────────────────────────────────────────────────────────────────────────────
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Timesheet API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "create-admin": "node scripts/create-admin.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "compression": "^1.8.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.11.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: server.js
+────────────────────────────────────────────────────────────────────────────────
+import "dotenv/config";
+import mongoose from "mongoose";
+import app from "./src/app.js";
+import connectDB from "./src/config/db.js";
+
+const REQUIRED_ENV = ["MONGODB_URI", "JWT_SECRET"];
+const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
+
+if (missing.length) {
+  console.error(`Missing required environment variables: ${missing.join(", ")}`);
+  process.exit(1);
+}
+
+const PORT = process.env.PORT || 3000;
+
+const startServer = async () => {
+  await connectDB();
+
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+
+  const shutdown = (signal) => {
+    console.log(`${signal} received. Shutting down...`);
+    server.close(async () => {
+      await mongoose.connection.close();
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+};
+
+startServer();
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/app.js
+────────────────────────────────────────────────────────────────────────────────
+import express from "express";
+import cookieParser from "cookie-parser";
+import compression from "compression";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import authRouter from "./routes/auth.route.js";
+import userRouter from "./routes/user.route.js";
+import projectRouter from "./routes/project.route.js";
+import taskRoutes from "./routes/task.routes.js";
+import permissionRoutes from "./routes/permission.routes.js";
+import { errorHandler, notFound } from "./middleware/error.middleware.js";
+
+const app = express();
+
+app.use(helmet());
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    credentials: true,
+  })
+);
+app.use(compression());
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
+app.use(cookieParser());
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { message: "Too many attempts. Please try again in a few minutes." },
+});
+
+app.get("/api/health", (req, res) => res.status(200).json({ status: "ok" }));
+
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+
+app.use("/api/auth", authRouter);
+app.use("/api/user", userRouter);
+app.use("/api/project", projectRouter);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/permissions", permissionRoutes);
+
+app.use(notFound);
+app.use(errorHandler);
+
+export default app;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/config/db.js
+────────────────────────────────────────────────────────────────────────────────
+import mongoose from "mongoose";
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log("MongoDB connected successfully");
+  } catch (error) {
+    console.error("MongoDB connection failed:", error.message);
+    process.exit(1);
+  }
+};
+
+export default connectDB;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/controllers/auth.controller.js
+────────────────────────────────────────────────────────────────────────────────
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import User from "../models/user.model.js";
+import { EMAIL_REGEX, normalizeEmail, validatePassword } from "../utils/validators.js";
+import { blacklistToken, JWT_ERRORS } from "../utils/token.js";
+import { toPublicUser } from "../utils/serializers.js";
+
+const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+const cookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/",
+});
+
+const DUMMY_HASH = bcrypt.hashSync("timing-safe-dummy-password", 10);
+
+export const register = async (req, res) => {
+  const name = String(req.body.name ?? "").trim();
+  const email = normalizeEmail(req.body.email);
+  const { password } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: "Name, email and password are required." });
+  }
+
+  if (!EMAIL_REGEX.test(email)) {
+    return res.status(400).json({ message: "Please enter a valid email address." });
+  }
+
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return res.status(400).json({ message: passwordError });
+  }
+
+  if (await User.exists({ email })) {
+    return res.status(409).json({ message: "Email id already registered." });
+  }
+
+  const user = await User.create({
+    name,
+    email,
+    password: await bcrypt.hash(password, 10),
+    role: "employee",
+  });
+
+  return res.status(201).json({ message: "User created successfully.", user: toPublicUser(user) });
+};
+
+export const login = async (req, res) => {
+  const email = normalizeEmail(req.body.email);
+  const { password } = req.body;
+
+  if (!email || typeof password !== "string" || !password) {
+    return res.status(400).json({ message: "Email and password are required." });
+  }
+
+  const user = await User.findOne({ email });
+  const passwordMatches = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
+
+  if (!user || !passwordMatches) {
+    return res.status(401).json({ message: "Invalid email or password." });
+  }
+
+  if (!user.isActive) {
+    return res.status(403).json({ message: "Your account has been deactivated. Please contact an administrator." });
+  }
+
+  const token = jwt.sign({ _id: user._id, role: user.role }, process.env.JWT_SECRET, {
+    expiresIn: "7d",
+  });
+
+  res.cookie("token", token, { ...cookieOptions(), maxAge: TOKEN_TTL_MS });
+
+  return res.status(200).json({ message: "Login successful.", user: toPublicUser(user) });
+};
+
+export const logout = async (req, res) => {
+  const token = req.cookies?.token;
+
+  res.clearCookie("token", cookieOptions());
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      await blacklistToken(token, decoded.exp);
+    } catch (error) {
+      if (!JWT_ERRORS.includes(error.name)) throw error;
+    }
+  }
+
+  return res.status(200).json({ message: "Logout successful." });
+};
+
+export const getCurrentUser = async (req, res) => {
+  const user = await User.findById(req.user.id).select("-password").lean();
+
+  return res.status(200).json({
+    message: "User authenticated successfully.",
+    user: toPublicUser(user),
+  });
+};
+
+export const changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: "Current password and new password are required." });
+  }
+
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ message: passwordError });
+  }
+
+  if (currentPassword === newPassword) {
+    return res.status(400).json({ message: "New password must be different from the current password." });
+  }
+
+  const user = await User.findById(req.user.id);
+
+  if (!(await bcrypt.compare(currentPassword, user.password))) {
+    return res.status(400).json({ message: "Current password is incorrect." });
+  }
+
+  user.password = await bcrypt.hash(newPassword, 10);
+  user.passwordChangedAt = new Date();
+  await user.save();
+
+  await blacklistToken(req.token, req.tokenExp);
+  res.clearCookie("token", cookieOptions());
+
+  return res.status(200).json({ message: "Password changed successfully. Please login again." });
+};
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/controllers/permission.controller.js
+────────────────────────────────────────────────────────────────────────────────
+import Permission from "../models/permission.model.js";
+import Project from "../models/project.model.js";
+import User from "../models/user.model.js";
+import { isId } from "../utils/validators.js";
+
+
+const POPULATE = [
+  { path: "user", select: "name email role" },
+  { path: "projects", select: "title status" },
+];
+
+const validateProjectIds = async (projects) => {
+  if (!Array.isArray(projects) || !projects.every(isId)) {
+    return { error: "Projects must be an array of valid project IDs." };
+  }
+
+  const ids = [...new Set(projects.map(String))];
+
+  if (ids.length) {
+    const found = await Project.countDocuments({ _id: { $in: ids } });
+    if (found !== ids.length) return { error: "One or more projects do not exist." };
+  }
+
+  return { ids };
+};
+
+export const createPermission = async (req, res) => {
+  const { user, projects = [] } = req.body;
+
+  if (!isId(user)) {
+    return res.status(400).json({ message: "Invalid user ID." });
+  }
+
+  if (!(await User.exists({ _id: user }))) {
+    return res.status(404).json({ message: "User does not exist." });
+  }
+
+  const { ids, error } = await validateProjectIds(projects);
+  if (error) return res.status(400).json({ message: error });
+
+  if (await Permission.exists({ user })) {
+    return res.status(409).json({ message: "Permission already exists for this user. Update it instead." });
+  }
+
+  const created = await Permission.create({ user, projects: ids });
+  const permission = await Permission.findById(created._id).populate(POPULATE).lean();
+
+  return res.status(201).json({ message: "Permission created successfully.", permission });
+};
+
+export const getAllPermissions = async (req, res) => {
+  const permissions = await Permission.find().populate(POPULATE).sort({ createdAt: -1 }).lean();
+
+  return res.status(200).json({ message: "Permissions fetched successfully.", permissions });
+};
+
+export const getPermissionById = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid permission ID." });
+  }
+
+  const permission = await Permission.findById(id).populate(POPULATE).lean();
+
+  if (!permission) {
+    return res.status(404).json({ message: "Permission not found." });
+  }
+
+  return res.status(200).json({ message: "Permission fetched successfully.", permission });
+};
+
+export const getPermissionByUser = async (req, res) => {
+  const { userId } = req.params;
+
+  if (!isId(userId)) {
+    return res.status(400).json({ message: "Invalid user ID." });
+  }
+
+  const permission = await Permission.findOne({ user: userId }).populate(POPULATE).lean();
+
+  if (!permission) {
+    return res.status(404).json({ message: "No permission record for this user." });
+  }
+
+  return res.status(200).json({ message: "Permission fetched successfully.", permission });
+};
+
+export const updatePermission = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid permission ID." });
+  }
+
+  const { ids, error } = await validateProjectIds(req.body.projects);
+  if (error) return res.status(400).json({ message: error });
+
+  const permission = await Permission.findByIdAndUpdate(
+    id,
+    { $set: { projects: ids } },
+    { returnDocument: "after", runValidators: true }
+  )
+    .populate(POPULATE)
+    .lean();
+
+  if (!permission) {
+    return res.status(404).json({ message: "Permission not found." });
+  }
+
+  return res.status(200).json({ message: "Permission updated successfully.", permission });
+};
+
+export const deletePermission = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid permission ID." });
+  }
+
+  const permission = await Permission.findByIdAndDelete(id);
+
+  if (!permission) {
+    return res.status(404).json({ message: "Permission not found." });
+  }
+
+  return res.status(200).json({ message: "Permission deleted successfully." });
+};
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/controllers/project.controller.js
+────────────────────────────────────────────────────────────────────────────────
+import Project, { PROJECT_STATUSES, TITLE_COLLATION } from "../models/project.model.js";
+import Task from "../models/task.model.js";
+import User from "../models/user.model.js";
+import Permission from "../models/permission.model.js";
+import { buildPagination, isId, parsePagination } from "../utils/validators.js";
+import { accessibleProjectsFilter, canAccessProject, canManageProject } from "../utils/access.js";
+import { getProjectHoursUsed } from "../utils/hours.js";
+
+const POPULATE = [
+  { path: "manager", select: "name email role" },
+  { path: "members", select: "name email role" },
+  { path: "createdBy", select: "name email" },
+];
+
+const parseDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const findTitleConflict = (title, excludeId) =>
+  Project.findOne({ title, ...(excludeId && { _id: { $ne: excludeId } }) })
+    .collation(TITLE_COLLATION)
+    .select("title")
+    .lean();
+
+const validateManager = async (managerId) => {
+  if (!isId(managerId)) return "Invalid manager ID.";
+
+  const user = await User.findById(managerId).select("role isActive").lean();
+
+  if (!user || !user.isActive) return "Manager does not exist or is inactive.";
+  if (!["manager", "admin"].includes(user.role)) return "Selected user must be a manager or admin.";
+
+  return null;
+};
+
+const validateMembers = async (members) => {
+  if (!Array.isArray(members)) return { error: "Members must be an array of user IDs." };
+
+  const ids = [...new Set(members.map(String))];
+
+  if (ids.some((id) => !isId(id))) return { error: "One or more member IDs are invalid." };
+
+  if (ids.length) {
+    const found = await User.countDocuments({ _id: { $in: ids }, isActive: true });
+    if (found !== ids.length) return { error: "One or more members do not exist or are inactive." };
+  }
+
+  return { ids };
+};
+
+export const getAllProjects = async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+  const filter = await accessibleProjectsFilter(req.user);
+
+  if (req.query.status !== undefined) {
+    if (!PROJECT_STATUSES.includes(req.query.status)) {
+      return res.status(400).json({ message: "Invalid status filter." });
+    }
+    filter.status = req.query.status;
+  }
+
+  const [projects, totalProjects] = await Promise.all([
+    Project.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Project.countDocuments(filter),
+  ]);
+
+  return res.status(200).json({
+    message: "Projects fetched successfully.",
+    projects,
+    pagination: buildPagination("totalProjects", totalProjects, page, limit),
+  });
+};
+
+export const getProjectById = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid project ID." });
+  }
+
+  const project = await Project.findById(id).populate(POPULATE).lean();
+
+  if (!project) {
+    return res.status(404).json({ message: "Project not found." });
+  }
+
+  if (!(await canAccessProject(req.user, project))) {
+    return res.status(403).json({ message: "You do not have access to this project." });
+  }
+
+  const hoursUsed = await getProjectHoursUsed(project._id);
+
+  return res.status(200).json({
+    message: "Project fetched successfully.",
+    project: {
+      ...project,
+      hoursUsed,
+      remainingHours: Math.max(0, project.totalHours - hoursUsed),
+    },
+  });
+};
+
+export const createProject = async (req, res) => {
+  const { title, description, type, status, clientName, manager, members = [], startDate, dueDate, totalHours } = req.body;
+  const trimmedTitle = String(title ?? "").trim();
+
+  if (!trimmedTitle || !manager || !startDate || totalHours === undefined || totalHours === null) {
+    return res.status(400).json({ message: "Title, manager, start date and total hours are required." });
+  }
+
+  if (req.user.role === "manager" && String(manager) !== req.user.id) {
+    return res.status(403).json({ message: "Managers can only create projects that they manage themselves." });
+  }
+
+  const managerError = await validateManager(manager);
+  if (managerError) return res.status(400).json({ message: managerError });
+
+  const { ids: memberIds, error: membersError } = await validateMembers(members);
+  if (membersError) return res.status(400).json({ message: membersError });
+
+  const start = parseDate(startDate);
+  const due = dueDate ? parseDate(dueDate) : null;
+
+  if (!start || (dueDate && !due)) {
+    return res.status(400).json({ message: "Invalid project date." });
+  }
+
+  if (due && due < start) {
+    return res.status(400).json({ message: "Due date cannot be before the start date." });
+  }
+
+  const hours = Number(totalHours);
+  if (!Number.isFinite(hours) || hours <= 0) {
+    return res.status(400).json({ message: "Total hours must be a positive number." });
+  }
+
+  const conflict = await findTitleConflict(trimmedTitle);
+  if (conflict) {
+    return res.status(409).json({ message: `Project "${conflict.title}" already exists.` });
+  }
+
+  const project = await Project.create({
+    title: trimmedTitle,
+    description,
+    type,
+    status,
+    clientName,
+    manager,
+    members: memberIds,
+    startDate: start,
+    dueDate: due || undefined,
+    totalHours: hours,
+    remainingHours: hours,
+    createdBy: req.user.id,
+  });
+
+  const createdProject = await Project.findById(project._id).populate(POPULATE).lean();
+
+  return res.status(201).json({ message: "Project created successfully.", project: createdProject });
+};
+
+export const updateProject = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid project ID." });
+  }
+
+  const project = await Project.findById(id);
+
+  if (!project) {
+    return res.status(404).json({ message: "Project not found." });
+  }
+
+  if (!canManageProject(req.user, project)) {
+    return res.status(403).json({ message: "You are not allowed to update this project." });
+  }
+
+  const { title, description, type, status, clientName, manager, members, startDate, dueDate, totalHours } = req.body;
+
+  if (title !== undefined) {
+    const trimmed = String(title).trim();
+    if (!trimmed) return res.status(400).json({ message: "Title cannot be empty." });
+
+    const conflict = await findTitleConflict(trimmed, id);
+    if (conflict) {
+      return res.status(409).json({ message: `Project "${conflict.title}" already exists.` });
+    }
+    project.title = trimmed;
+  }
+
+  if (description !== undefined) project.description = description;
+  if (clientName !== undefined) project.clientName = clientName;
+  if (type !== undefined) project.type = type;
+  if (status !== undefined) project.status = status;
+
+  if (manager !== undefined && String(manager) !== String(project.manager)) {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Only an admin can reassign the project manager." });
+    }
+    const managerError = await validateManager(manager);
+    if (managerError) return res.status(400).json({ message: managerError });
+    project.manager = manager;
+  }
+
+  if (members !== undefined) {
+    const { ids, error } = await validateMembers(members);
+    if (error) return res.status(400).json({ message: error });
+    project.members = ids;
+  }
+
+  if (startDate !== undefined) {
+    const start = parseDate(startDate);
+    if (!start) return res.status(400).json({ message: "Invalid start date." });
+    project.startDate = start;
+  }
+
+  if (dueDate !== undefined) {
+    if (dueDate === null || dueDate === "") {
+      project.dueDate = undefined;
+    } else {
+      const due = parseDate(dueDate);
+      if (!due) return res.status(400).json({ message: "Invalid due date." });
+      project.dueDate = due;
+    }
+  }
+
+  if (project.dueDate && project.dueDate < project.startDate) {
+    return res.status(400).json({ message: "Due date cannot be before the start date." });
+  }
+
+  if (totalHours !== undefined) {
+    const parsed = Number(totalHours);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return res.status(400).json({ message: "Total hours must be a positive number." });
+    }
+
+    const used = await getProjectHoursUsed(project._id);
+
+    if (parsed < used) {
+      return res.status(400).json({ message: `Total hours cannot be less than the ${used} hour(s) already logged.` });
+    }
+
+    project.totalHours = parsed;
+    project.remainingHours = parsed - used;
+  }
+
+  await project.save();
+
+  const updatedProject = await Project.findById(id).populate(POPULATE).lean();
+
+  return res.status(200).json({ message: "Project updated successfully.", project: updatedProject });
+};
+
+export const deleteProject = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid project ID." });
+  }
+
+  const project = await Project.findById(id).select("title");
+
+  if (!project) {
+    return res.status(404).json({ message: "Project not found." });
+  }
+
+  const taskCount = await Task.countDocuments({ project: id });
+
+  if (taskCount > 0) {
+    return res.status(409).json({
+      message: `This project has ${taskCount} logged task(s). Set its status to "completed" or "cancelled" instead of deleting it.`,
+    });
+  }
+
+  await Promise.all([
+    project.deleteOne(),
+    Permission.updateMany({ projects: id }, { $pull: { projects: id } }),
+  ]);
+
+  return res.status(200).json({ message: "Project deleted successfully." });
+};
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/controllers/task.controller.js
+────────────────────────────────────────────────────────────────────────────────
+import Task, { TASK_STATUSES, TASK_TYPES } from "../models/task.model.js";
+import Project from "../models/project.model.js";
+import User from "../models/user.model.js";
+import { buildPagination, isId, isValidHours, parsePagination, toObjectId, toUtcDay } from "../utils/validators.js";
+import { canAccessProject, canAccessTask, canManageProject, idOf, visibleTasksFilter } from "../utils/access.js";
+import { getEmployeeDayHours, getProjectHoursUsed, sumTaskHours, syncRemainingHours } from "../utils/hours.js";
+
+const MAX_HOURS_PER_DAY = 24;
+const CLOSED_PROJECT_STATUSES = ["completed", "cancelled"];
+const EDITABLE_FIELDS = ["project", "employee", "type", "status", "date", "hours", "description"];
+const POPULATE = [
+  { path: "project", select: "title" },
+  { path: "employee", select: "name email" },
+];
+
+const fail = (status, message) => ({ error: { status, message } });
+
+const pick = (source, keys) =>
+  Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
+
+const validateTaskEntry = async ({ user, projectId, employeeId, hours, date, excludeTaskId }) => {
+  if (!isId(projectId) || !isId(employeeId)) {
+    return fail(400, "Invalid project or employee ID.");
+  }
+
+  if (!isValidHours(hours)) {
+    return fail(400, "Hours must be between 0.25 and 24 in increments of 0.25.");
+  }
+
+  const day = toUtcDay(date);
+  if (!day) return fail(400, "Invalid task date.");
+
+  const latestAllowedDay = toUtcDay(Date.now());
+  latestAllowedDay.setUTCDate(latestAllowedDay.getUTCDate() + 1);
+  if (day > latestAllowedDay) return fail(400, "Hours cannot be logged for future dates.");
+
+  const [project, employee] = await Promise.all([
+    Project.findById(projectId).select("title status startDate totalHours manager members").lean(),
+    User.findById(employeeId).select("role isActive").lean(),
+  ]);
+
+  if (!project) return fail(404, "Project does not exist.");
+  if (!employee || !employee.isActive) return fail(404, "Employee does not exist or is inactive.");
+
+  if (CLOSED_PROJECT_STATUSES.includes(project.status)) {
+    return fail(400, `Hours cannot be logged on a ${project.status} project.`);
+  }
+
+  if (day < toUtcDay(project.startDate)) {
+    return fail(400, "Task date cannot be before the project start date.");
+  }
+
+  const isSelf = String(employeeId) === user.id;
+  if (!isSelf && !canManageProject(user, project)) {
+    return fail(403, "You can only log hours for yourself on this project.");
+  }
+
+  const employeeOnProject = await canAccessProject({ id: String(employeeId), role: employee.role }, project);
+  if (!employeeOnProject) {
+    return fail(403, isSelf ? "You do not have access to this project." : "This employee is not assigned to the project.");
+  }
+
+  const [projectUsed, dayUsed] = await Promise.all([
+    getProjectHoursUsed(project._id, excludeTaskId),
+    getEmployeeDayHours(employeeId, day, excludeTaskId),
+  ]);
+
+  if (projectUsed + hours > project.totalHours) {
+    const left = Math.max(0, project.totalHours - projectUsed);
+    return fail(400, `Project's allocated hours would be exceeded. Only ${left} hour(s) remaining.`);
+  }
+
+  if (dayUsed + hours > MAX_HOURS_PER_DAY) {
+    return fail(400, `Daily limit exceeded: ${dayUsed} hour(s) are already logged for this date.`);
+  }
+
+  return { project, day };
+};
+
+export const createTask = async (req, res) => {
+  const { project, type, status, date, hours, description } = req.body;
+  const employee = req.body.employee ?? req.user.id;
+
+  if (!project || hours === undefined || hours === null || !date) {
+    return res.status(400).json({ message: "Project, date and hours are required." });
+  }
+
+  const taskHours = Number(hours);
+
+  const result = await validateTaskEntry({
+    user: req.user,
+    projectId: project,
+    employeeId: employee,
+    hours: taskHours,
+    date,
+  });
+
+  if (result.error) {
+    return res.status(result.error.status).json({ message: result.error.message });
+  }
+
+  const task = await Task.create({
+    project,
+    employee,
+    type,
+    status,
+    date: result.day,
+    hours: taskHours,
+    description,
+  });
+
+  await syncRemainingHours(project);
+  await task.populate(POPULATE);
+
+  return res.status(201).json({ message: "Task created successfully.", task });
+};
+
+export const getAllTasks = async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+  const { project, employee, status, type, from, to } = req.query;
+
+  const conditions = [await visibleTasksFilter(req.user)];
+
+  if (project !== undefined) {
+    if (!isId(project)) return res.status(400).json({ message: "Invalid project filter." });
+    conditions.push({ project: toObjectId(project) });
+  }
+
+  if (employee !== undefined) {
+    if (!isId(employee)) return res.status(400).json({ message: "Invalid employee filter." });
+    conditions.push({ employee: toObjectId(employee) });
+  }
+
+  if (status !== undefined) {
+    if (!TASK_STATUSES.includes(status)) return res.status(400).json({ message: "Invalid status filter." });
+    conditions.push({ status });
+  }
+
+  if (type !== undefined) {
+    if (!TASK_TYPES.includes(type)) return res.status(400).json({ message: "Invalid type filter." });
+    conditions.push({ type });
+  }
+
+  if (from !== undefined || to !== undefined) {
+    const range = {};
+
+    if (from !== undefined) {
+      const fromDay = toUtcDay(from);
+      if (!fromDay) return res.status(400).json({ message: "Invalid 'from' date." });
+      range.$gte = fromDay;
+    }
+
+    if (to !== undefined) {
+      const toDay = toUtcDay(to);
+      if (!toDay) return res.status(400).json({ message: "Invalid 'to' date." });
+      range.$lte = toDay;
+    }
+
+    conditions.push({ date: range });
+  }
+
+  const filter = { $and: conditions };
+
+  const [tasks, totalTasks, totalHours] = await Promise.all([
+    Task.find(filter).populate(POPULATE).sort({ date: -1, createdAt: -1 }).skip(skip).limit(limit),
+    Task.countDocuments(filter),
+    sumTaskHours(filter),
+  ]);
+
+  return res.status(200).json({
+    message: "Tasks fetched successfully.",
+    tasks,
+    summary: { totalHours },
+    pagination: buildPagination("totalTasks", totalTasks, page, limit),
+  });
+};
+
+export const getTaskById = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid task ID." });
+  }
+
+  const task = await Task.findById(id).populate(POPULATE);
+
+  if (!task) {
+    return res.status(404).json({ message: "Task not found." });
+  }
+
+  const project = await Project.findById(idOf(task.project)).select("manager").lean();
+
+  if (!canAccessTask(req.user, task, project)) {
+    return res.status(403).json({ message: "You do not have access to this task." });
+  }
+
+  return res.status(200).json({ message: "Task fetched successfully.", task });
+};
+
+export const updateTask = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid task ID." });
+  }
+
+  const task = await Task.findById(id);
+
+  if (!task) {
+    return res.status(404).json({ message: "Task not found." });
+  }
+
+  const currentProject = await Project.findById(task.project).select("manager").lean();
+
+  if (!canAccessTask(req.user, task, currentProject)) {
+    return res.status(403).json({ message: "You are not allowed to update this task." });
+  }
+
+  const updates = pick(req.body, EDITABLE_FIELDS);
+
+  const projectId = updates.project ?? String(task.project);
+  const employeeId = updates.employee ?? String(task.employee);
+  const hours = updates.hours !== undefined ? Number(updates.hours) : task.hours;
+  const date = updates.date ?? task.date;
+
+  const result = await validateTaskEntry({
+    user: req.user,
+    projectId,
+    employeeId,
+    hours,
+    date,
+    excludeTaskId: task._id,
+  });
+
+  if (result.error) {
+    return res.status(result.error.status).json({ message: result.error.message });
+  }
+
+  const previousProjectId = String(task.project);
+
+  Object.assign(task, updates, {
+    project: projectId,
+    employee: employeeId,
+    hours,
+    date: result.day,
+  });
+
+  await task.save();
+
+  await Promise.all([...new Set([previousProjectId, String(projectId)])].map(syncRemainingHours));
+
+  await task.populate(POPULATE);
+
+  return res.status(200).json({ message: "Task updated successfully.", task });
+};
+
+export const deleteTask = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid task ID." });
+  }
+
+  const task = await Task.findById(id);
+
+  if (!task) {
+    return res.status(404).json({ message: "Task not found." });
+  }
+
+  const project = await Project.findById(task.project).select("manager status").lean();
+
+  if (!canAccessTask(req.user, task, project)) {
+    return res.status(403).json({ message: "You are not allowed to delete this task." });
+  }
+
+  if (project && CLOSED_PROJECT_STATUSES.includes(project.status) && req.user.role !== "admin") {
+    return res.status(400).json({ message: `Entries on a ${project.status} project can only be removed by an admin.` });
+  }
+
+  await task.deleteOne();
+  await syncRemainingHours(task.project);
+
+  return res.status(200).json({ message: "Task deleted successfully." });
+};
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/controllers/user.controller.js
+────────────────────────────────────────────────────────────────────────────────
+import bcrypt from "bcrypt";
+import User, { USER_ROLES } from "../models/user.model.js";
+import Project from "../models/project.model.js";
+import {
+  EMAIL_REGEX,
+  buildPagination,
+  escapeRegex,
+  isId,
+  normalizeEmail,
+  parsePagination,
+  validatePassword,
+} from "../utils/validators.js";
+import { toPublicUser } from "../utils/serializers.js";
+
+const resolveManagerId = async (managerId, userId) => {
+  if (managerId === null || managerId === "") return { value: null };
+
+  if (!isId(managerId)) return { error: "Invalid manager ID." };
+
+  if (userId && String(managerId) === String(userId)) {
+    return { error: "A user cannot be their own manager." };
+  }
+
+  const manager = await User.findById(managerId).select("role isActive").lean();
+
+  if (!manager || !manager.isActive) return { error: "Manager does not exist or is inactive." };
+
+  if (!["manager", "admin"].includes(manager.role)) {
+    return { error: "Assigned manager must have the manager or admin role." };
+  }
+
+  return { value: managerId };
+};
+
+export const getAllUsers = async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+  const filter = {};
+
+  if (req.query.role !== undefined) {
+    if (!USER_ROLES.includes(req.query.role)) {
+      return res.status(400).json({ message: "Invalid role filter." });
+    }
+    filter.role = req.query.role;
+  }
+
+  if (req.user.role !== "admin") {
+    filter.isActive = true;
+  } else if (req.query.active !== undefined) {
+    filter.isActive = req.query.active === "true";
+  }
+
+  const search = String(req.query.search ?? "").trim();
+  if (search) {
+    const pattern = new RegExp(escapeRegex(search), "i");
+    filter.$or = [{ name: pattern }, { email: pattern }];
+  }
+
+  const [users, totalUsers] = await Promise.all([
+    User.find(filter).select("-password").sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    User.countDocuments(filter),
+  ]);
+
+  return res.status(200).json({
+    message: "Users fetched successfully.",
+    users: users.map(toPublicUser),
+    pagination: buildPagination("totalUsers", totalUsers, page, limit),
+  });
+};
+
+export const getUserById = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid user ID." });
+  }
+
+  const isPrivileged = ["admin", "manager"].includes(req.user.role);
+
+  if (!isPrivileged && id !== req.user.id) {
+    return res.status(403).json({ message: "You can only view your own profile." });
+  }
+
+  const user = await User.findById(id).select("-password").lean();
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found." });
+  }
+
+  return res.status(200).json({ message: "User fetched successfully.", user: toPublicUser(user) });
+};
+
+export const createUser = async (req, res) => {
+  const name = String(req.body.name ?? "").trim();
+  const email = normalizeEmail(req.body.email);
+  const { password, role = "employee", managerId = null } = req.body;
+
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: "Name, email and password are required." });
+  }
+
+  if (!EMAIL_REGEX.test(email)) {
+    return res.status(400).json({ message: "Please enter a valid email address." });
+  }
+
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return res.status(400).json({ message: passwordError });
+  }
+
+  if (!USER_ROLES.includes(role)) {
+    return res.status(400).json({ message: "Invalid role." });
+  }
+
+  const manager = await resolveManagerId(managerId);
+  if (manager.error) {
+    return res.status(400).json({ message: manager.error });
+  }
+
+  if (await User.exists({ email })) {
+    return res.status(409).json({ message: "Email id already registered." });
+  }
+
+  const user = await User.create({
+    name,
+    email,
+    password: await bcrypt.hash(password, 10),
+    role,
+    managerId: manager.value,
+  });
+
+  return res.status(201).json({ message: "User created successfully.", user: toPublicUser(user) });
+};
+
+export const updateUser = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid user ID." });
+  }
+
+  const user = await User.findById(id);
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found." });
+  }
+
+  const { name, role, managerId, isActive } = req.body;
+  const isSelf = id === req.user.id;
+
+  if (name !== undefined) {
+    const trimmed = String(name).trim();
+    if (!trimmed) return res.status(400).json({ message: "Name cannot be empty." });
+    user.name = trimmed;
+  }
+
+  if (role !== undefined) {
+    if (!USER_ROLES.includes(role)) {
+      return res.status(400).json({ message: "Invalid role." });
+    }
+    if (isSelf && role !== "admin") {
+      return res.status(400).json({ message: "You cannot remove your own admin role." });
+    }
+    user.role = role;
+  }
+
+  if (isActive !== undefined) {
+    if (typeof isActive !== "boolean") {
+      return res.status(400).json({ message: "isActive must be true or false." });
+    }
+    if (isSelf && !isActive) {
+      return res.status(400).json({ message: "You cannot deactivate your own account." });
+    }
+    user.isActive = isActive;
+  }
+
+  if (managerId !== undefined) {
+    const manager = await resolveManagerId(managerId, id);
+    if (manager.error) return res.status(400).json({ message: manager.error });
+    user.managerId = manager.value;
+  }
+
+  await user.save();
+
+  return res.status(200).json({ message: "User updated successfully.", user: toPublicUser(user) });
+};
+
+export const deactivateUser = async (req, res) => {
+  const { id } = req.params;
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid user ID." });
+  }
+
+  if (id === req.user.id) {
+    return res.status(400).json({ message: "You cannot deactivate your own account." });
+  }
+
+  const user = await User.findByIdAndUpdate(
+    id,
+    { $set: { isActive: false } },
+    { returnDocument: "after" }
+  )
+    .select("-password")
+    .lean();
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found." });
+  }
+
+  const managedProjects = await Project.countDocuments({
+    manager: id,
+    status: { $nin: ["completed", "cancelled"] },
+  });
+
+  return res.status(200).json({
+    message: managedProjects
+      ? `User deactivated. They still manage ${managedProjects} open project(s) - please assign a new manager.`
+      : "User deactivated successfully.",
+    user: toPublicUser(user),
+    managedProjects,
+  });
+};
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/middleware/auth.middleware.js
+────────────────────────────────────────────────────────────────────────────────
+import jwt from "jsonwebtoken";
+import User from "../models/user.model.js";
+import BlacklistedToken from "../models/blacklistedToken.model.js";
+import { hashToken, JWT_ERRORS } from "../utils/token.js";
+
+export const verifyToken = (allowedRoles = []) => {
+  return async (req, res, next) => {
+    const token = req.cookies?.token;
+
+    if (!token) {
+      return res.status(401).json({ message: "Authentication required." });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      if (JWT_ERRORS.includes(error.name)) {
+        return res.status(401).json({ message: "Invalid or expired token. Please login again." });
+      }
+      throw error;
+    }
+
+    const [isBlacklisted, user] = await Promise.all([
+      BlacklistedToken.exists({ tokenHash: hashToken(token) }),
+      User.findById(decoded._id).select("name email role isActive passwordChangedAt").lean(),
+    ]);
+
+    if (isBlacklisted) {
+      return res.status(401).json({ message: "Session expired. Please login again." });
+    }
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({ message: "Your account is inactive or no longer exists." });
+    }
+
+    if (
+      user.passwordChangedAt &&
+      decoded.iat < Math.floor(new Date(user.passwordChangedAt).getTime() / 1000)
+    ) {
+      return res.status(401).json({ message: "Your password was changed. Please login again." });
+    }
+
+    if (allowedRoles.length && !allowedRoles.includes(user.role)) {
+      return res.status(403).json({ message: "You do not have permission to access this resource." });
+    }
+
+    req.user = {
+      id: String(user._id),
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+    req.token = token;
+    req.tokenExp = decoded.exp;
+
+    return next();
+  };
+};
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/middleware/error.middleware.js
+────────────────────────────────────────────────────────────────────────────────
+export const notFound = (req, res) => {
+  res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
+};
+
+export const errorHandler = (err, req, res, next) => {
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "Request body is not valid JSON." });
+  }
+
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({ message: "Request body is too large." });
+  }
+
+  if (err.name === "CastError") {
+    return res.status(400).json({ message: `Invalid value for "${err.path}".` });
+  }
+
+  if (err.name === "ValidationError") {
+    const message = Object.values(err.errors).map((e) => e.message).join(" ");
+    return res.status(400).json({ message });
+  }
+
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue ?? {})[0] ?? "field";
+    return res.status(409).json({ message: `A record with this ${field} already exists.` });
+  }
+
+  console.error(`[${req.method} ${req.originalUrl}]`, err);
+  return res.status(500).json({ message: "Internal server error." });
+};
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/models/blacklistedToken.model.js
+────────────────────────────────────────────────────────────────────────────────
+import mongoose from "mongoose";
+
+const blacklistedTokenSchema = new mongoose.Schema({
+  tokenHash: { type: String, required: true, unique: true },
+  expiresAt: { type: Date, required: true, expires: 0 },
+});
+
+const BlacklistedToken = mongoose.model("BlacklistedToken", blacklistedTokenSchema);
+
+export default BlacklistedToken;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/models/permission.model.js
+────────────────────────────────────────────────────────────────────────────────
+import mongoose from "mongoose";
+
+const permissionSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
+    projects: [{ type: mongoose.Schema.Types.ObjectId, ref: "Project" }],
+  },
+  { timestamps: true }
+);
+
+permissionSchema.index({ projects: 1 });
+
+const Permission = mongoose.model("Permission", permissionSchema);
+
+export default Permission;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/models/project.model.js
+────────────────────────────────────────────────────────────────────────────────
+import mongoose from "mongoose";
+
+export const PROJECT_TYPES = ["billable", "non-billable", "internal"];
+export const PROJECT_STATUSES = ["planned", "active", "on-hold", "completed", "cancelled"];
+export const TITLE_COLLATION = { locale: "en", strength: 2 };
+
+const projectSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true, maxlength: 200 },
+    description: { type: String, trim: true, default: "", maxlength: 5000 },
+    type: { type: String, enum: PROJECT_TYPES, default: "non-billable" },
+    status: { type: String, enum: PROJECT_STATUSES, default: "planned" },
+    clientName: { type: String, trim: true, default: "", maxlength: 200 },
+    manager: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    startDate: { type: Date, required: true },
+    dueDate: { type: Date },
+    totalHours: { type: Number, required: true, min: 0 },
+    remainingHours: { type: Number, default: function () { return this.totalHours; }, min: 0 },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  },
+  { timestamps: true }
+);
+
+projectSchema.index({ title: 1 }, { unique: true, collation: TITLE_COLLATION });
+projectSchema.index({ manager: 1 });
+projectSchema.index({ members: 1 });
+projectSchema.index({ status: 1 });
+
+const Project = mongoose.model("Project", projectSchema);
+
+export default Project;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/models/task.model.js
+────────────────────────────────────────────────────────────────────────────────
+import mongoose from "mongoose";
+
+export const TASK_TYPES = ["development", "bug-fix", "testing", "meeting", "research", "documentation", "deployment", "other"];
+export const TASK_STATUSES = ["planned", "active", "on-hold", "completed", "cancelled"];
+
+const taskSchema = new mongoose.Schema(
+  {
+    project: { type: mongoose.Schema.Types.ObjectId, ref: "Project", required: true, index: true },
+    employee: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    type: { type: String, enum: TASK_TYPES, default: "development" },
+    status: { type: String, enum: TASK_STATUSES, default: "planned" },
+    date: { type: Date, required: true, default: Date.now },
+    hours: {
+      type: Number,
+      required: true,
+      min: 0.25,
+      max: 24,
+      validate: {
+        validator: (value) => Number.isFinite(value) && Number.isInteger(value * 4),
+        message: "Hours must be in increments of 0.25",
+      },
+    },
+    description: { type: String, trim: true, maxlength: 2000, default: "" },
+  },
+  {
+    timestamps: true,
+    versionKey: false,
+    toJSON: {
+      virtuals: true,
+      transform: (_doc, ret) => {
+        ret.id = ret._id;
+        return ret;
+      },
+    },
+  }
+);
+
+taskSchema.index({ project: 1, date: -1 });
+taskSchema.index({ employee: 1, date: -1 });
+taskSchema.index({ project: 1, status: 1 });
+taskSchema.index({ employee: 1, status: 1 });
+taskSchema.index({ description: "text" });
+
+taskSchema.virtual("isLogged").get(function () {
+  return this.hours > 0;
+});
+
+taskSchema.pre("save", function () {
+  if (this.isModified("date") && this.date) {
+    this.date.setUTCHours(0, 0, 0, 0);
+  }
+});
+
+const Task = mongoose.model("Task", taskSchema);
+
+export default Task;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/models/user.model.js
+────────────────────────────────────────────────────────────────────────────────
+import mongoose from "mongoose";
+
+export const USER_ROLES = ["admin", "manager", "employee"];
+
+const userSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 100 },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Invalid email address."],
+    },
+    password: { type: String, required: true },
+    role: { type: String, enum: USER_ROLES, default: "employee", index: true },
+    managerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    isActive: { type: Boolean, default: true },
+    passwordChangedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+
+userSchema.index({ managerId: 1, role: 1 });
+
+export default mongoose.model("User", userSchema);
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/routes/auth.route.js
+────────────────────────────────────────────────────────────────────────────────
+import express from "express";
+import { changePassword, getCurrentUser, login, logout, register } from "../controllers/auth.controller.js";
+import { verifyToken } from "../middleware/auth.middleware.js";
+
+const router = express.Router();
+
+router.post("/register", register);
+router.post("/login", login);
+router.post("/logout", logout);
+router.get("/me", verifyToken(), getCurrentUser);
+router.patch("/change-password", verifyToken(), changePassword);
+
+export default router;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/routes/permission.routes.js
+────────────────────────────────────────────────────────────────────────────────
+import express from "express";
+import {
+  createPermission,
+  deletePermission,
+  getAllPermissions,
+  getPermissionById,
+  getPermissionByUser,
+  updatePermission,
+} from "../controllers/permission.controller.js";
+import { verifyToken } from "../middleware/auth.middleware.js";
+
+const router = express.Router();
+
+router.use(verifyToken(["admin"]));
+
+router.post("/", createPermission);
+router.get("/all", getAllPermissions);
+router.get("/user/:userId", getPermissionByUser);
+router.get("/:id", getPermissionById);
+router.patch("/:id", updatePermission);
+router.delete("/:id", deletePermission);
+
+export default router;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/routes/project.route.js
+────────────────────────────────────────────────────────────────────────────────
+import express from "express";
+import { createProject, deleteProject, getAllProjects, getProjectById, updateProject } from "../controllers/project.controller.js";
+import { verifyToken } from "../middleware/auth.middleware.js";
+
+const router = express.Router();
+
+router.get("/all", verifyToken(), getAllProjects);
+router.get("/:id", verifyToken(), getProjectById);
+router.post("/", verifyToken(["admin", "manager"]), createProject);
+router.put("/:id", verifyToken(["admin", "manager"]), updateProject);
+router.delete("/:id", verifyToken(["admin"]), deleteProject);
+
+export default router;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/routes/task.routes.js
+────────────────────────────────────────────────────────────────────────────────
+import express from "express";
+import { createTask, deleteTask, getAllTasks, getTaskById, updateTask } from "../controllers/task.controller.js";
+import { verifyToken } from "../middleware/auth.middleware.js";
+
+const router = express.Router();
+
+router.use(verifyToken());
+
+router.post("/", createTask);
+router.get("/", getAllTasks);
+router.get("/:id", getTaskById);
+router.put("/:id", updateTask);
+router.delete("/:id", deleteTask);
+
+export default router;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/routes/user.route.js
+────────────────────────────────────────────────────────────────────────────────
+import express from "express";
+import { createUser, deactivateUser, getAllUsers, getUserById, updateUser } from "../controllers/user.controller.js";
+import { verifyToken } from "../middleware/auth.middleware.js";
+
+const router = express.Router();
+
+router.get("/all", verifyToken(["admin", "manager"]), getAllUsers);
+router.post("/", verifyToken(["admin"]), createUser);
+router.get("/:id", verifyToken(), getUserById);
+router.patch("/:id", verifyToken(["admin"]), updateUser);
+router.delete("/:id", verifyToken(["admin"]), deactivateUser);
+
+export default router;
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/utils/access.js
+────────────────────────────────────────────────────────────────────────────────
+import Permission from "../models/permission.model.js";
+import Project from "../models/project.model.js";
+import { toObjectId } from "./validators.js";
+
+export const idOf = (value) => {
+  const id = value?._id ?? value;
+  return id == null ? null : String(id);
+};
+
+const sameId = (a, b) => {
+  const x = idOf(a);
+  const y = idOf(b);
+  return Boolean(x && y && x === y);
+};
+
+export const accessibleProjectsFilter = async (user) => {
+  if (user.role === "admin") return {};
+
+  const userId = toObjectId(user.id);
+  const permission = await Permission.findOne({ user: userId }).select("projects").lean();
+
+  return {
+    $or: [
+      { manager: userId },
+      { members: userId },
+      { _id: { $in: permission?.projects ?? [] } },
+    ],
+  };
+};
+
+export const canAccessProject = async (user, project) => {
+  if (!project) return false;
+  if (user.role === "admin") return true;
+  if (sameId(project.manager, user.id)) return true;
+  if ((project.members ?? []).some((member) => sameId(member, user.id))) return true;
+
+  const permitted = await Permission.exists({ user: user.id, projects: idOf(project) });
+  return Boolean(permitted);
+};
+
+export const canManageProject = (user, project) =>
+  Boolean(project) &&
+  (user.role === "admin" || (user.role === "manager" && sameId(project.manager, user.id)));
+
+export const visibleTasksFilter = async (user) => {
+  if (user.role === "admin") return {};
+
+  const userId = toObjectId(user.id);
+
+  if (user.role === "manager") {
+    const managedProjectIds = await Project.distinct("_id", { manager: userId });
+    return { $or: [{ employee: userId }, { project: { $in: managedProjectIds } }] };
+  }
+
+  return { employee: userId };
+};
+
+export const canAccessTask = (user, task, project) => user.role === "admin" || sameId(task.employee, user.id) || canManageProject(user, project);
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/utils/hours.js
+────────────────────────────────────────────────────────────────────────────────
+import Task from "../models/task.model.js";
+import Project from "../models/project.model.js";
+import { toObjectId } from "./validators.js";
+
+export const sumTaskHours = async (match) => {
+  const [result] = await Task.aggregate([
+    { $match: match },
+    { $group: { _id: null, total: { $sum: "$hours" } } },
+  ]);
+  return result?.total ?? 0;
+};
+
+const excludeTask = (taskId) => (taskId ? { _id: { $ne: toObjectId(taskId) } } : {});
+
+export const getProjectHoursUsed = (projectId, excludeTaskId) =>
+  sumTaskHours({ project: toObjectId(projectId), ...excludeTask(excludeTaskId) });
+
+export const getEmployeeDayHours = (employeeId, day, excludeTaskId) => {
+  const nextDay = new Date(day);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+
+  return sumTaskHours({
+    employee: toObjectId(employeeId),
+    date: { $gte: day, $lt: nextDay },
+    ...excludeTask(excludeTaskId),
+  });
+};
+
+export const syncRemainingHours = async (projectId) => {
+  const project = await Project.findById(projectId).select("totalHours").lean();
+  if (!project) return;
+
+  const used = await getProjectHoursUsed(projectId);
+
+  await Project.updateOne(
+    { _id: projectId },
+    { $set: { remainingHours: Math.max(0, project.totalHours - used) } }
+  );
+};
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/utils/serializers.js
+────────────────────────────────────────────────────────────────────────────────
+export const toPublicUser = (user) =>
+  user && {
+    id: String(user._id ?? user.id),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    managerId: user.managerId ?? null,
+    isActive: user.isActive ?? true,
+    createdAt: user.createdAt,
+  };
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/utils/token.js
+────────────────────────────────────────────────────────────────────────────────
+import { createHash } from "crypto";
+import BlacklistedToken from "../models/blacklistedToken.model.js";
+
+export const JWT_ERRORS = ["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"];
+
+export const hashToken = (token) => createHash("sha256").update(token).digest("hex");
+
+export const blacklistToken = async (token, exp) => {
+  if (!token || !exp) return;
+  const tokenHash = hashToken(token);
+
+  await BlacklistedToken.updateOne(
+    { tokenHash },
+    { $setOnInsert: { tokenHash, expiresAt: new Date(exp * 1000) } },
+    { upsert: true }
+  );
+};
+
+────────────────────────────────────────────────────────────────────────────────
+FILE: src/utils/validators.js
+────────────────────────────────────────────────────────────────────────────────
+import mongoose from "mongoose";
+
+export const isId = (value) => value != null && mongoose.isObjectIdOrHexString(value);
+
+export const toObjectId = (value) => new mongoose.Types.ObjectId(String(value));
+
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const normalizeEmail = (email) => String(email ?? "").trim().toLowerCase();
+
+export const validatePassword = (password) => {
+  if (typeof password !== "string" || password.length < 8) {
+    return "Password must be at least 8 characters long.";
+  }
+  if (password.length > 72) {
+    return "Password must be at most 72 characters long.";
+  }
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    return "Password must contain at least one letter and one number.";
+  }
+  return null;
+};
+
+export const isValidHours = (hours) =>
+  Number.isFinite(hours) && hours >= 0.25 && hours <= 24 && Number.isInteger(hours * 4);
+
+export const toUtcDay = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setUTCHours(0, 0, 0, 0);
+  return date;
+};
+
+export const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const parsePagination = (query, { defaultLimit = 10, maxLimit = 100 } = {}) => {
+  const page = Math.max(1, parseInt(query.page, 10) || 1);
+  const limit = Math.min(maxLimit, Math.max(1, parseInt(query.limit, 10) || defaultLimit));
+  return { page, limit, skip: (page - 1) * limit };
+};
+
+export const buildPagination = (totalKey, total, page, limit) => ({
+  [totalKey]: total,
+  currentPage: page,
+  limit,
+  totalPage: Math.ceil(total / limit),
+  hasNextPage: page * limit < total,
+  hasPrevPage: page > 1,
+});

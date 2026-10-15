@@ -1,26 +1,23 @@
-import axios from "axios";
-import API from "./api";
+import { fetchAllPages, http } from "./api.js";
+import { readListParams } from "../utils/helpers.js";
 
-
-export const getAllUsers = async ({ page = 1, limit = 10 } = {}) => {
-  const response = await axios.get(`${API}/api/user/all`, {
-    params: { page, limit },
-    withCredentials: true,
-  });
-
-  return response.data;
-};
+export const getUsers = (params) => http.get("/user/all", { params }).then((r) => r.data);
+export const getAllUsersList = (params) => fetchAllPages("/user/all", "users", params);
+export const createUser = (payload) => http.post("/user", payload).then((r) => r.data);
+export const updateUser = (id, payload) => http.patch(`/user/${id}`, payload).then((r) => r.data);
+export const deactivateUser = (id) => http.delete(`/user/${id}`).then((r) => r.data);
 
 export const usersLoader = async ({ request }) => {
-  const url = new URL(request.url);
+  const params = readListParams(request, ["role", "active", "search"]);
 
-  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
-  const limit = Math.max(1, Number(url.searchParams.get("limit")) || 10);
+  const [list, activeUsers] = await Promise.all([
+    getUsers(params),
+    getAllUsersList({ active: "true" }),
+  ]);
 
-  const response = await axios.get(`${API}/api/user/all`, {
-    params: { page, limit },
-    withCredentials: true,
-  });
-
-  return response.data;
+  return {
+    users: list.users ?? [],
+    pagination: list.pagination ?? {},
+    activeUsers,
+  };
 };

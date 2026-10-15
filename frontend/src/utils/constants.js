@@ -1,0 +1,9 @@
+// Mirrors the enums defined in the backend models.
+export const USER_ROLES = ["admin", "manager", "employee"];
+export const PROJECT_TYPES = ["billable", "non-billable", "internal"];
+export const PROJECT_STATUSES = ["planned", "active", "on-hold", "completed", "cancelled"];
+export const CLOSED_PROJECT_STATUSES = ["completed", "cancelled"];
+export const TASK_TYPES = ["development", "bug-fix", "testing", "meeting", "research", "documentation", "deployment", "other"];
+export const TASK_STATUSES = ["planned", "active", "on-hold", "completed", "cancelled"];
+export const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+export const MAX_PAGE_LIMIT = 100; // backend parsePagination maxLimit

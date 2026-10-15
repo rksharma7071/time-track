@@ -1,8 +1,10 @@
-
 import express from "express";
-import { createTask, getAllTasks, getTaskById, updateTask, deleteTask } from "../controllers/task.controller.js";
+import { createTask, deleteTask, getAllTasks, getTaskById, updateTask } from "../controllers/task.controller.js";
+import { verifyToken } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
+
+router.use(verifyToken());
 
 router.post("/", createTask);
 router.get("/", getAllTasks);

@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../styles/SearchableSelect.css";
 
@@ -12,28 +11,27 @@ const SearchableSelect = ({
   valueKey = "_id",
   secondaryKey = "",
   disabled = false,
+  clearable = true,
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapperRef = useRef(null);
   const searchRef = useRef(null);
 
+  const optionValue = (option) => String(option?.[valueKey] ?? "");
+
   const selectedOption = useMemo(
-    () => options.find((option) => option[valueKey] === value),
+    () => (value ? options.find((option) => String(option[valueKey]) === String(value)) : undefined),
     [options, value, valueKey]
   );
 
   const filteredOptions = useMemo(() => {
     const search = query.trim().toLowerCase();
-
     if (!search) return options;
 
     return options.filter((option) => {
       const label = String(option[labelKey] ?? "").toLowerCase();
-      const secondary = String(
-        secondaryKey ? option[secondaryKey] ?? "" : ""
-      ).toLowerCase();
-
+      const secondary = String(secondaryKey ? option[secondaryKey] ?? "" : "").toLowerCase();
       return label.includes(search) || secondary.includes(search);
     });
   }, [options, query, labelKey, secondaryKey]);
@@ -42,11 +40,8 @@ const SearchableSelect = ({
     if (!open) return;
 
     const handleOutsideClick = (event) => {
-      if (!wrapperRef.current?.contains(event.target)) {
-        setOpen(false);
-      }
+      if (!wrapperRef.current?.contains(event.target)) setOpen(false);
     };
-
     const handleEscape = (event) => {
       if (event.key === "Escape") setOpen(false);
     };
@@ -55,25 +50,23 @@ const SearchableSelect = ({
     document.addEventListener("touchstart", handleOutsideClick);
     document.addEventListener("keydown", handleEscape);
 
+    const timer = setTimeout(() => searchRef.current?.focus(), 0);
+
     return () => {
+      clearTimeout(timer);
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("touchstart", handleOutsideClick);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-
+  const toggleOpen = () => {
     setQuery("");
-
-    const timer = setTimeout(() => searchRef.current?.focus(), 0);
-
-    return () => clearTimeout(timer);
-  }, [open]);
+    setOpen((prev) => !prev);
+  };
 
   const handleSelect = (option) => {
-    onChange?.(option[valueKey]);
+    onChange?.(optionValue(option));
     setOpen(false);
     setQuery("");
   };
@@ -83,24 +76,16 @@ const SearchableSelect = ({
       <button
         type="button"
         className={`searchable-select-trigger ${open ? "is-open" : ""}`}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={toggleOpen}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span
-          className={
-            selectedOption
-              ? "searchable-select-value"
-              : "searchable-select-placeholder"
-          }
-        >
-          {selectedOption
-            ? selectedOption[labelKey]
-            : placeholder}
+        <span className={selectedOption ? "searchable-select-value" : "searchable-select-placeholder"}>
+          {selectedOption ? selectedOption[labelKey] : placeholder}
         </span>
 
-        {value && (
+        {clearable && value && !disabled && (
           <span
             className="searchable-select-clear"
             role="button"
@@ -108,7 +93,6 @@ const SearchableSelect = ({
             onClick={(event) => {
               event.stopPropagation();
               onChange?.("");
-              setQuery("");
             }}
           >
             ×
@@ -133,32 +117,23 @@ const SearchableSelect = ({
 
           <div className="searchable-select-list" role="listbox">
             {filteredOptions.length === 0 ? (
-              <p className="searchable-select-empty">
-                No matching options found.
-              </p>
+              <p className="searchable-select-empty">No matching options found.</p>
             ) : (
               filteredOptions.map((option) => {
-                const selected = option[valueKey] === value;
+                const selected = optionValue(option) === String(value);
 
                 return (
                   <button
                     type="button"
                     role="option"
                     aria-selected={selected}
-                    key={option[valueKey]}
-                    className={`searchable-select-option ${selected ? "is-selected" : ""
-                      }`}
+                    key={optionValue(option)}
+                    className={`searchable-select-option ${selected ? "is-selected" : ""}`}
                     onClick={() => handleSelect(option)}
                   >
                     <span>{option[labelKey]}</span>
-
-                    {secondaryKey && option[secondaryKey] && (
-                      <small>{option[secondaryKey]}</small>
-                    )}
-
-                    {selected && (
-                      <span className="searchable-select-check">✓</span>
-                    )}
+                    {secondaryKey && option[secondaryKey] && <small>{option[secondaryKey]}</small>}
+                    {selected && <span className="searchable-select-check">✓</span>}
                   </button>
                 );
               })
@@ -166,8 +141,7 @@ const SearchableSelect = ({
           </div>
 
           <div className="searchable-select-footer">
-            {filteredOptions.length} option
-            {filteredOptions.length !== 1 ? "s" : ""}
+            {filteredOptions.length} option{filteredOptions.length !== 1 ? "s" : ""}
           </div>
         </div>
       )}
