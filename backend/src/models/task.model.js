@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 export const TASK_TYPES = ["development", "bug-fix", "testing", "meeting", "research", "documentation", "deployment", "other"];
 export const TASK_STATUSES = ["planned", "active", "on-hold", "completed", "cancelled"];
+export const TASK_APPROVAL_STATUSES = ["pending", "approved", "rejected"];
 
 const taskSchema = new mongoose.Schema(
   {
@@ -9,6 +10,9 @@ const taskSchema = new mongoose.Schema(
     employee: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     type: { type: String, enum: TASK_TYPES, default: "development" },
     status: { type: String, enum: TASK_STATUSES, default: "planned" },
+    approvalStatus: { type: String, enum: TASK_APPROVAL_STATUSES, default: "pending", index: true },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    approvedAt: { type: Date, default: null },
     date: { type: Date, required: true, default: Date.now },
     hours: {
       type: Number,
@@ -39,6 +43,8 @@ taskSchema.index({ project: 1, date: -1 });
 taskSchema.index({ employee: 1, date: -1 });
 taskSchema.index({ project: 1, status: 1 });
 taskSchema.index({ employee: 1, status: 1 });
+taskSchema.index({ project: 1, approvalStatus: 1 });
+taskSchema.index({ employee: 1, approvalStatus: 1 });
 taskSchema.index({ description: "text" });
 
 taskSchema.virtual("isLogged").get(function () {

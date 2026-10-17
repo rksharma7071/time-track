@@ -2,10 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getId } from "../utils/helpers.js";
 import "../styles/MembersSelect.css";
 
-/**
- * Searchable multi-select for users. Works with both `id` (users API)
- * and `_id` (populated refs) shapes.
- */
+
 const MembersSelect = ({
   options = [],
   value = [],

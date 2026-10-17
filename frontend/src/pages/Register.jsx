@@ -33,7 +33,6 @@ const Register = () => {
 
     setLoading(true);
     try {
-      // Backend always creates self-registered accounts with the employee role.
       await register({ name, email, password: formData.password });
       navigate("/login", { replace: true, state: { message: "Account created. Log in to continue." } });
     } catch (err) {

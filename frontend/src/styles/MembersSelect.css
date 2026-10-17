@@ -3,7 +3,6 @@
   width: 100%;
 }
 
-/* Trigger */
 .members-select-trigger {
   display: flex;
   align-items: center;
@@ -53,7 +52,6 @@
   transform: rotate(180deg);
 }
 
-/* Chips */
 .members-select-chips {
   display: flex;
   flex-wrap: wrap;
@@ -103,7 +101,6 @@
   color: #fff;
 }
 
-/* Panel */
 .members-select-panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -130,7 +127,6 @@
   }
 }
 
-/* Search box */
 .members-select-search {
   position: relative;
   padding: 10px;
@@ -182,7 +178,6 @@
   color: var(--color-primary);
 }
 
-/* Option list */
 .members-select-list {
   max-height: 240px;
   overflow-y: auto;
@@ -280,7 +275,6 @@
   color: #15803d;
 }
 
-/* Empty */
 .members-select-empty {
   margin: 0;
   padding: 26px 14px;
@@ -289,7 +283,6 @@
   text-align: center;
 }
 
-/* Footer */
 .members-select-footer {
   display: flex;
   align-items: center;
@@ -320,7 +313,6 @@
   background: var(--color-error-bg);
 }
 
-/* Small screens */
 @media (max-width: 480px) {
   .members-select-list {
     max-height: 200px;

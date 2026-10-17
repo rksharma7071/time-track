@@ -47,7 +47,6 @@
   line-height: 1.6;
 }
 
-/* Form */
 .project-form {
   display: flex;
   flex-direction: column;
@@ -163,7 +162,6 @@
   line-height: 1.5;
 }
 
-/* List */
 .project-list-section {
   display: flex;
   flex-direction: column;
@@ -191,7 +189,6 @@
   font-weight: 700;
 }
 
-/* Toolbar */
 .project-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -234,10 +231,9 @@
   color: var(--color-placeholder);
 }
 
-/* Table */
 .project-table-wrapper {
   width: 100%;
-  overflow-x: auto;
+  /* overflow-x: auto; */
   border: 1px solid var(--color-border-light);
   border-radius: 10px;
 }
@@ -289,7 +285,6 @@
 
 .project-table td small {
   display: block;
-  /* margin-top: 4px; */
   color: var(--color-placeholder);
   font-size: 11px;
 }
@@ -338,7 +333,6 @@
 .project-timeline {
   display: flex;
   flex-direction: column;
-  /* gap: 5px; */
   min-width: 100px;
   white-space: nowrap;
 }
@@ -365,7 +359,6 @@
   font-size: 12px;
 }
 
-/* Summary + pagination */
 .project-summary {
   display: flex;
   align-items: center;
@@ -382,7 +375,6 @@
   font-weight: 600;
 }
 
-/* Same pagination block as User.css */
 .pagination-controls {
   display: flex;
   align-items: center;
@@ -440,7 +432,6 @@
   cursor: not-allowed;
 }
 
-/* Responsive */
 @media (max-width: 1100px) {
   .project-container {
     grid-template-columns: 300px minmax(0, 1fr);
@@ -517,13 +508,11 @@
   }
 }
 
-/* Wrapper */
 .row-menu {
   position: relative;
   display: inline-block;
 }
 
-/* Remove default marker on <summary> */
 .row-menu-trigger::-webkit-details-marker {
   display: none;
 }
@@ -536,7 +525,6 @@
   list-style: none;
 }
 
-/* Trigger — three-dot button */
 .row-menu-trigger {
   display: inline-flex;
   flex-direction: row;
@@ -573,7 +561,6 @@
   background: var(--color-primary);
 }
 
-/* Panel — anchored just below the trigger */
 .row-menu-panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -600,7 +587,6 @@
   }
 }
 
-/* Item */
 .row-menu-item {
   display: flex;
   align-items: center;
@@ -641,14 +627,12 @@
   font-size: 14px;
 }
 
-/* Mobile */
 @media (max-width: 480px) {
   .row-menu-panel {
     min-width: 150px;
   }
 }
 
-/* Form action row — submit + cancel */
 .project-actions {
   display: flex;
   flex-direction: column;
@@ -685,7 +669,6 @@
   cursor: not-allowed;
 }
 
-/* Row highlight while editing */
 .project-table tbody tr.is-editing {
   background: var(--color-primary-light);
 }

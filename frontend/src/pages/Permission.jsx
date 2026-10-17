@@ -9,10 +9,6 @@ import "../styles/TimesheetForm.css";
 
 const initialFormData = { user: "", projects: [] };
 
-/**
- * A permission grants a user extra project access on top of being the
- * project's manager or a member. One record per user (backend enforces).
- */
 const Permission = () => {
   const { permissions, projects, users } = useLoaderData();
   const revalidator = useRevalidator();
@@ -25,7 +21,6 @@ const Permission = () => {
   const [info, setInfo] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Admins already see every project, so only managers/employees need grants.
   const userOptions = useMemo(() => users.filter((u) => u.role !== "admin"), [users]);
 
   const permissionByUser = useMemo(
@@ -56,7 +51,6 @@ const Permission = () => {
     clearMessages();
     const existing = userId ? permissionByUser.get(userId) : null;
 
-    // Backend returns 409 if a record already exists, so switch to editing it.
     if (existing) {
       startEdit(existing);
       setInfo("This user already has a permission record — you're now editing it.");

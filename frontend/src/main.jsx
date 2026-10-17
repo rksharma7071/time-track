@@ -24,6 +24,7 @@ import { tasksLoader } from "./data/task.js";
 import { projectsLoader } from "./data/project.js";
 import { usersLoader } from "./data/user.js";
 import { permissionsLoader } from "./data/permission.js";
+import Report from "./pages/Report.jsx";
 
 const NotFoundRedirect = () => {
   const { user, loading } = useAuth();
@@ -54,6 +55,11 @@ const router = createBrowserRouter([
                 element: <MyTask />,
                 loader: tasksLoader,
                 errorElement: <RouteError />
+              },
+              {
+                path: "reports",
+                element: <Report />,
+                loader: tasksLoader,
               },
               {
                 path: "account",

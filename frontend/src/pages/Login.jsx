@@ -16,7 +16,6 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Message passed from Register / ChangePassword after a redirect.
   const notice = location.state?.message ?? "";
 
   const handleChange = (e) => {
@@ -34,7 +33,6 @@ const Login = () => {
       setUser(data.user);
       navigate("/", { replace: true });
     } catch (err) {
-      // 401 invalid credentials, 403 deactivated, 429 rate limited
       setError(getErrorMessage(err, "Login failed. Check your email and password."));
     } finally {
       setLoading(false);

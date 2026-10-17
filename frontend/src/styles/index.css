@@ -38,10 +38,6 @@ body {
   color: var(--color-text);
 }
 
-/* =========================================================
-   SHARED FORM STYLES  (User + Project use these identically)
-   ========================================================= */
-
 .user-form,
 .project-form {
   display: flex;
@@ -64,7 +60,6 @@ body {
   font-weight: 600;
 }
 
-/* Single-line inputs + selects — identical height everywhere */
 .user-form-group input,
 .user-form-group select,
 .project-form-group input,
@@ -83,7 +78,6 @@ body {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* Textareas need padding + auto height instead of fixed height */
 .user-form-group textarea,
 .project-form-group textarea {
   width: 100%;
@@ -102,7 +96,6 @@ body {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* Multi-select — auto height, inner option padding */
 .user-form-group select[multiple],
 .project-form-group select[multiple] {
   height: auto;
@@ -115,7 +108,6 @@ body {
   border-radius: 4px;
 }
 
-/* Focus ring — identical everywhere */
 .user-form-group input:focus,
 .user-form-group select:focus,
 .user-form-group textarea:focus,
@@ -126,7 +118,6 @@ body {
   box-shadow: 0 0 0 3px rgba(49, 87, 183, 0.1);
 }
 
-/* Placeholder — identical everywhere */
 .user-form-group input::placeholder,
 .user-form-group textarea::placeholder,
 .project-form-group input::placeholder,
@@ -134,7 +125,6 @@ body {
   color: var(--color-placeholder);
 }
 
-/* Helper text — identical everywhere */
 .user-form-group small,
 .project-form-group small {
   color: var(--color-placeholder);
@@ -142,7 +132,6 @@ body {
   line-height: 1.5;
 }
 
-/* Submit button — identical everywhere */
 .user-submit-btn,
 .project-submit-btn {
   width: 100%;
@@ -170,7 +159,6 @@ body {
   transform: scale(0.98);
 }
 
-/* Messages — identical everywhere */
 .user-message,
 .project-error,
 .project-success {

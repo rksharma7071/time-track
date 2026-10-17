@@ -1,4 +1,4 @@
-import Task, { TASK_STATUSES, TASK_TYPES } from "../models/task.model.js";
+import Task, { TASK_APPROVAL_STATUSES, TASK_STATUSES, TASK_TYPES } from "../models/task.model.js";
 import Project from "../models/project.model.js";
 import User from "../models/user.model.js";
 import { buildPagination, isId, isValidHours, parsePagination, toObjectId, toUtcDay } from "../utils/validators.js";
@@ -9,14 +9,23 @@ const MAX_HOURS_PER_DAY = 24;
 const CLOSED_PROJECT_STATUSES = ["completed", "cancelled"];
 const EDITABLE_FIELDS = ["project", "employee", "type", "status", "date", "hours", "description"];
 const POPULATE = [
-  { path: "project", select: "title" },
+  { path: "project", select: "title manager" },
   { path: "employee", select: "name email" },
+  { path: "approvedBy", select: "name email" },
 ];
 
 const fail = (status, message) => ({ error: { status, message } });
 
 const pick = (source, keys) =>
   Object.fromEntries(keys.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]));
+
+// UTC day-of-week: 0 = Sunday, 6 = Saturday
+const WEEKEND_DAYS = [0, 6];
+const isWeekendDate = (date) => {
+  const day = toUtcDay(date);
+  if (!day) return false;
+  return WEEKEND_DAYS.includes(day.getUTCDay());
+};
 
 const validateTaskEntry = async ({ user, projectId, employeeId, hours, date, excludeTaskId }) => {
   if (!isId(projectId) || !isId(employeeId)) {
@@ -29,6 +38,10 @@ const validateTaskEntry = async ({ user, projectId, employeeId, hours, date, exc
 
   const day = toUtcDay(date);
   if (!day) return fail(400, "Invalid task date.");
+  
+  if (WEEKEND_DAYS.includes(day.getUTCDay())) {
+    return fail(400, "Hours can only be logged Monday through Friday.");
+  }
 
   const latestAllowedDay = toUtcDay(Date.now());
   latestAllowedDay.setUTCDate(latestAllowedDay.getUTCDate() + 1);
@@ -117,7 +130,7 @@ export const createTask = async (req, res) => {
 
 export const getAllTasks = async (req, res) => {
   const { page, limit, skip } = parsePagination(req.query);
-  const { project, employee, status, type, from, to } = req.query;
+  const { project, employee, status, type, approvalStatus, from, to } = req.query;
 
   const conditions = [await visibleTasksFilter(req.user)];
 
@@ -139,6 +152,13 @@ export const getAllTasks = async (req, res) => {
   if (type !== undefined) {
     if (!TASK_TYPES.includes(type)) return res.status(400).json({ message: "Invalid type filter." });
     conditions.push({ type });
+  }
+
+  if (approvalStatus !== undefined) {
+    if (!TASK_APPROVAL_STATUSES.includes(approvalStatus)) {
+      return res.status(400).json({ message: "Invalid approval status filter." });
+    }
+    conditions.push({ approvalStatus });
   }
 
   if (from !== undefined || to !== undefined) {
@@ -216,6 +236,10 @@ export const updateTask = async (req, res) => {
     return res.status(403).json({ message: "You are not allowed to update this task." });
   }
 
+  if (task.approvalStatus === "approved" && req.user.role === "employee") {
+    return res.status(403).json({ message: "Approved tasks cannot be edited by employees." });
+  }
+
   const updates = pick(req.body, EDITABLE_FIELDS);
 
   const projectId = updates.project ?? String(task.project);
@@ -245,6 +269,12 @@ export const updateTask = async (req, res) => {
     date: result.day,
   });
 
+  if (task.approvalStatus === "rejected") {
+    task.approvalStatus = "pending";
+    task.approvedBy = null;
+    task.approvedAt = null;
+  }
+
   await task.save();
 
   await Promise.all([...new Set([previousProjectId, String(projectId)])].map(syncRemainingHours));
@@ -273,6 +303,10 @@ export const deleteTask = async (req, res) => {
     return res.status(403).json({ message: "You are not allowed to delete this task." });
   }
 
+  if (task.approvalStatus === "approved" && req.user.role === "employee") {
+    return res.status(403).json({ message: "Approved tasks cannot be deleted by employees." });
+  }
+
   if (project && CLOSED_PROJECT_STATUSES.includes(project.status) && req.user.role !== "admin") {
     return res.status(400).json({ message: `Entries on a ${project.status} project can only be removed by an admin.` });
   }
@@ -281,4 +315,46 @@ export const deleteTask = async (req, res) => {
   await syncRemainingHours(task.project);
 
   return res.status(200).json({ message: "Task deleted successfully." });
+};
+
+export const updateTaskApproval = async (req, res) => {
+  const { id } = req.params;
+  const { approvalStatus } = req.body;
+
+  if (!["admin", "manager"].includes(req.user.role)) {
+    return res.status(403).json({ message: "Only managers and admins can approve or reject tasks." });
+  }
+
+  if (!isId(id)) {
+    return res.status(400).json({ message: "Invalid task ID." });
+  }
+
+  if (!TASK_APPROVAL_STATUSES.includes(approvalStatus)) {
+    return res.status(400).json({
+      message: `Invalid approval status. Must be one of: ${TASK_APPROVAL_STATUSES.join(", ")}.`,
+    });
+  }
+
+  const task = await Task.findById(id);
+
+  if (!task) {
+    return res.status(404).json({ message: "Task not found." });
+  }
+
+  task.approvalStatus = approvalStatus;
+  if (approvalStatus === "pending") {
+    task.approvedBy = null;
+    task.approvedAt = null;
+  } else {
+    task.approvedBy = req.user.id;
+    task.approvedAt = new Date();
+  }
+
+  await task.save();
+  await task.populate(POPULATE);
+
+  return res.status(200).json({
+    message: `Task ${approvalStatus} successfully.`,
+    task,
+  });
 };

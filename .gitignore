@@ -25,3 +25,12 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+
+backend/code.txt
+frontend/code.txt
+**/code.txt
+backend/collectBackend.js
+frontend/collectFrontend.js
+**/collectBackend.js
+**/collectFrontend.js

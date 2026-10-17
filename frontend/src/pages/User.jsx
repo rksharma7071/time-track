@@ -23,7 +23,6 @@ const User = () => {
   const [success, setSuccess] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Search is sent to the backend (?search=), debounced.
   const urlSearch = get("search");
   const [searchInput, setSearchInput] = useState(urlSearch);
 
@@ -72,7 +71,7 @@ const User = () => {
     }
 
     const payload = editingId
-      ? // PATCH /api/user/:id accepts name, role, managerId, isActive only.
+      ?
       { name, role: formData.role, managerId: formData.managerId || null }
       : { name, email, password: formData.password, role: formData.role, managerId: formData.managerId || null };
 
@@ -111,7 +110,6 @@ const User = () => {
 
     try {
       const data = await deactivateUser(getId(row));
-      // Message warns if they still manage open projects.
       setSuccess(data.message || "User deactivated.");
       if (editingId === getId(row)) resetForm();
       revalidator.revalidate();

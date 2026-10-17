@@ -1,7 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import { PAGE_SIZE_OPTIONS } from "../utils/constants.js";
 
-/** Pagination bound to ?page & ?limit, driven by the backend `pagination` object. */
 const Pagination = ({ pagination = {}, id = "rows-per-page" }) => {
   const [, setSearchParams] = useSearchParams();
 

@@ -5,6 +5,7 @@ import "../styles/Header.css";
 
 const NAV_ITEMS = [
   { to: "/", label: "My Tasks", end: true },
+  { to: "/reports", label: "Reports" },
   { to: "/projects", label: "Projects", roles: ["admin", "manager"] },
   { to: "/users", label: "Users", roles: ["admin"] },
   { to: "/permission", label: "Permissions", roles: ["admin"] },

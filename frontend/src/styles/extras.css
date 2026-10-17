@@ -1,4 +1,3 @@
-/* Additions used by the backend-aligned pages. Imported once in main.jsx. */
 
 .auth-loading {
   display: grid;
@@ -36,7 +35,6 @@ select:disabled {
   cursor: not-allowed;
 }
 
-/* Info message (Permission page) */
 .timesheet-info {
   margin: 0;
   padding: 12px 14px;
@@ -48,7 +46,6 @@ select:disabled {
   line-height: 1.5;
 }
 
-/* Server-side filter bar (My Tasks) */
 .list-filters {
   display: flex;
   flex-wrap: wrap;
@@ -107,24 +104,20 @@ select:disabled {
   background: var(--color-primary-light);
 }
 
-/* Editing row highlight for task / permission tables */
 .task-table tbody tr.is-editing {
   background: var(--color-primary-light);
 }
 
-/* Disabled row-menu item */
 .row-menu-item:disabled {
   opacity: 0.6;
   cursor: progress;
 }
 
-/* Planned status badge on tasks */
 .task-status-badge.status-planned {
   background: #f1f5f9;
   color: #475569;
 }
 
-/* Active / deactivated user pill */
 .status-pill {
   display: inline-block;
   padding: 4px 9px;
@@ -144,7 +137,6 @@ select:disabled {
   color: #b91c1c;
 }
 
-/* Hours used vs allocated (Projects) */
 .hours-meter {
   display: flex;
   flex-direction: column;
@@ -168,7 +160,6 @@ select:disabled {
   background: var(--color-primary);
 }
 
-/* Project chips (Permission list) */
 .chip-list {
   display: flex;
   flex-wrap: wrap;
@@ -185,7 +176,6 @@ select:disabled {
   font-weight: 600;
 }
 
-/* Account page */
 .account-page {
   display: flex;
   justify-content: center;
@@ -204,7 +194,6 @@ select:disabled {
   font-weight: 700;
 }
 
-/* Route error */
 .route-error {
   display: grid;
   place-items: center;

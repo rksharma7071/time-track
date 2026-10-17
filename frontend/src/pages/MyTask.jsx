@@ -4,15 +4,15 @@ import SearchableSelect from "../components/SearchableSelect.jsx";
 import Pagination from "../components/Pagination.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useListParams } from "../hooks/useListParams.js";
-import { createTask, deleteTask, TASK_FILTER_KEYS, updateTask } from "../data/task.js";
+import { createTask, deleteTask, TASK_FILTER_KEYS, updateTask, updateTaskApproval } from "../data/task.js";
 import { getErrorMessage } from "../data/api.js";
-import { CLOSED_PROJECT_STATUSES, TASK_STATUSES, TASK_TYPES } from "../utils/constants.js";
+import { CLOSED_PROJECT_STATUSES, TASK_APPROVAL_STATUSES, TASK_STATUSES, TASK_TYPES } from "../utils/constants.js";
 import { closeRowMenu, getId, isValidHours, labelize, sameId, toDateInput, todayLocal } from "../utils/helpers.js";
 import "../styles/TimesheetForm.css";
 
 const emptyForm = () => ({
   project: "",
-  employee: "", // "" = log for myself (backend defaults employee to req.user)
+  employee: "",
   type: "development",
   status: "planned",
   date: todayLocal(),
@@ -31,6 +31,7 @@ const MyTask = () => {
 
   const [formData, setFormData] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
+  const [approvingId, setApprovingId] = useState(null);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -39,13 +40,11 @@ const MyTask = () => {
   const projectsById = useMemo(() => new Map(projects.map((p) => [getId(p), p])), [projects]);
   const selectedProject = projectsById.get(formData.project);
 
-  // Hours can't be logged on completed/cancelled projects.
   const projectOptions = useMemo(
     () => projects.filter((p) => !CLOSED_PROJECT_STATUSES.includes(p.status) || getId(p) === formData.project),
     [projects, formData.project]
   );
 
-  // Backend: you may log for someone else only if you manage the project (or are admin).
   const canAssignEmployee =
     isPrivileged && (isAdmin || (selectedProject && sameId(selectedProject.manager, user?.id)));
 
@@ -103,7 +102,29 @@ const MyTask = () => {
     }
   };
 
+  const canApprove = () => Boolean(isPrivileged);
+
+  const handleApproval = async (id, approvalStatus) => {
+    setError("");
+    setSuccess("");
+    setApprovingId(id);
+    try {
+      const data = await updateTaskApproval(id, approvalStatus);
+      setSuccess(data.message || `Task ${approvalStatus}.`);
+      revalidator.revalidate();
+    } catch (err) {
+      setError(getErrorMessage(err, `Failed to update task approval to ${approvalStatus}.`));
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
   const handleEdit = (task) => {
+    if (task.approvalStatus === "approved" && !isPrivileged) {
+      setError("Approved time entries cannot be edited. Please contact your manager or admin.");
+      return;
+    }
+
     const employeeId = getId(task.employee);
 
     setEditingId(getId(task));
@@ -121,7 +142,12 @@ const MyTask = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, task) => {
+    if (task?.approvalStatus === "approved" && !isPrivileged) {
+      setError("Approved time entries cannot be deleted. Please contact your manager or admin.");
+      return;
+    }
+
     if (!window.confirm("Delete this time entry? This can't be undone.")) return;
     setError("");
     setSuccess("");
@@ -146,10 +172,16 @@ const MyTask = () => {
     if (!query) return tasks;
 
     return tasks.filter((task) =>
-      [task.description, projectTitle(task), task.employee?.name, task.type, task.status]
-        .some((field) => String(field ?? "").toLowerCase().includes(query))
+      [
+        task.description,
+        projectTitle(task),
+        task.employee?.name,
+        task.type,
+        task.status,
+        task.approvalStatus,
+        task.approvedBy?.name,
+      ].some((field) => String(field ?? "").toLowerCase().includes(query))
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, search, projectsById]);
 
   return (
@@ -317,6 +349,11 @@ const MyTask = () => {
             {TASK_STATUSES.map((s) => <option key={s} value={s}>{labelize(s)}</option>)}
           </select>
 
+          <select aria-label="Filter by approval status" value={get("approvalStatus")} onChange={(e) => setFilter("approvalStatus", e.target.value)}>
+            <option value="">All approvals</option>
+            {TASK_APPROVAL_STATUSES.map((a) => <option key={a} value={a}>{labelize(a)}</option>)}
+          </select>
+
           <select aria-label="Filter by type" value={get("type")} onChange={(e) => setFilter("type", e.target.value)}>
             <option value="">All types</option>
             {TASK_TYPES.map((t) => <option key={t} value={t}>{labelize(t)}</option>)}
@@ -355,6 +392,7 @@ const MyTask = () => {
                 <th>Employee</th>
                 <th>Type</th>
                 <th>Status</th>
+                <th>Approval</th>
                 <th>Date</th>
                 <th>Hours</th>
                 <th>Description</th>
@@ -365,12 +403,58 @@ const MyTask = () => {
               {filteredTasks.length > 0 ? (
                 filteredTasks.map((task) => {
                   const taskId = getId(task);
+                  const isApproved = task.approvalStatus === "approved";
+                  const isRejected = task.approvalStatus === "rejected";
+                  const approvalState = task.approvalStatus || "pending";
+                  const userCanApprove = canApprove(task);
+
                   return (
                     <tr key={taskId} className={editingId === taskId ? "is-editing" : undefined}>
                       <td>{projectTitle(task)}</td>
                       <td>{task.employee?.name ?? "—"}</td>
                       <td><span className="task-type-badge">{labelize(task.type)}</span></td>
                       <td><span className={`task-status-badge status-${task.status}`}>{labelize(task.status)}</span></td>
+                      <td>
+                        <div className="approval-cell">
+                          <span className={`approval-badge approval-${approvalState}`}>
+                            {isApproved && "✓ "}
+                            {isRejected && "✕ "}
+                            {!isApproved && !isRejected && "🕒 "}
+                            {labelize(approvalState)}
+                          </span>
+                          {task.approvedBy?.name && (
+                            <span className="approval-meta" title={task.approvedAt ? `On ${new Date(task.approvedAt).toLocaleDateString()}` : undefined}>
+                              by {task.approvedBy.name}
+                            </span>
+                          )}
+                          {userCanApprove && (
+                            <div className="approval-quick-actions">
+                              {!isApproved && (
+                                <button
+                                  type="button"
+                                  className="approval-btn approve-btn"
+                                  title="Approve task"
+                                  disabled={approvingId === taskId}
+                                  onClick={() => handleApproval(taskId, "approved")}
+                                >
+                                  {approvingId === taskId ? "..." : "Approve"}
+                                </button>
+                              )}
+                              {!isRejected && (
+                                <button
+                                  type="button"
+                                  className="approval-btn reject-btn"
+                                  title="Reject task"
+                                  disabled={approvingId === taskId}
+                                  onClick={() => handleApproval(taskId, "rejected")}
+                                >
+                                  {approvingId === taskId ? "..." : "Reject"}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td>{toDateInput(task.date)}</td>
                       <td>{task.hours}</td>
                       <td className="task-description">{task.description || "—"}</td>
@@ -380,24 +464,73 @@ const MyTask = () => {
                             <span></span><span></span><span></span>
                           </summary>
                           <div className="row-menu-panel" role="menu">
-                            <button
-                              type="button"
-                              className="row-menu-item"
-                              role="menuitem"
-                              onClick={(e) => { closeRowMenu(e); handleEdit(task); }}
-                            >
-                              <span className="row-menu-item-icon">✏️</span>
-                              <span>Edit entry</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="row-menu-item is-danger"
-                              role="menuitem"
-                              onClick={(e) => { closeRowMenu(e); handleDelete(taskId); }}
-                            >
-                              <span className="row-menu-item-icon">🗑️</span>
-                              <span>Delete entry</span>
-                            </button>
+                            {userCanApprove && (
+                              <>
+                                {!isApproved && (
+                                  <button
+                                    type="button"
+                                    className="row-menu-item is-success"
+                                    role="menuitem"
+                                    disabled={approvingId === taskId}
+                                    onClick={(e) => { closeRowMenu(e); handleApproval(taskId, "approved"); }}
+                                  >
+                                    <span className="row-menu-item-icon">✅</span>
+                                    <span>Approve task</span>
+                                  </button>
+                                )}
+                                {!isRejected && (
+                                  <button
+                                    type="button"
+                                    className="row-menu-item is-warning"
+                                    role="menuitem"
+                                    disabled={approvingId === taskId}
+                                    onClick={(e) => { closeRowMenu(e); handleApproval(taskId, "rejected"); }}
+                                  >
+                                    <span className="row-menu-item-icon">❌</span>
+                                    <span>Reject task</span>
+                                  </button>
+                                )}
+                                {approvalState !== "pending" && (
+                                  <button
+                                    type="button"
+                                    className="row-menu-item"
+                                    role="menuitem"
+                                    disabled={approvingId === taskId}
+                                    onClick={(e) => { closeRowMenu(e); handleApproval(taskId, "pending"); }}
+                                  >
+                                    <span className="row-menu-item-icon">🔄</span>
+                                    <span>Reset to pending</span>
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {(!isApproved || isPrivileged) ? (
+                              <button
+                                type="button"
+                                className="row-menu-item"
+                                role="menuitem"
+                                onClick={(e) => { closeRowMenu(e); handleEdit(task); }}
+                              >
+                                <span className="row-menu-item-icon">✏️</span>
+                                <span>Edit entry</span>
+                              </button>
+                            ) : null}
+                            {(!isApproved || isPrivileged) ? (
+                              <button
+                                type="button"
+                                className="row-menu-item is-danger"
+                                role="menuitem"
+                                onClick={(e) => { closeRowMenu(e); handleDelete(taskId, task); }}
+                              >
+                                <span className="row-menu-item-icon">🗑️</span>
+                                <span>Delete entry</span>
+                              </button>
+                            ) : null}
+                            {isApproved && !isPrivileged && (
+                              <div className="row-menu-item is-disabled" style={{ opacity: 0.6, cursor: "not-allowed", padding: "8px 12px", fontSize: "12px", color: "var(--color-muted)" }}>
+                                🔒 Locked (Approved)
+                              </div>
+                            )}
                           </div>
                         </details>
                       </td>
@@ -406,7 +539,7 @@ const MyTask = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan="8" className="empty-task-list">
+                  <td colSpan="9" className="empty-task-list">
                     {tasks.length === 0
                       ? hasFilters ? "No entries match these filters." : "No time logged yet. Use the form to log your first entry."
                       : "No entries on this page match your search."}

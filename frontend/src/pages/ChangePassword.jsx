@@ -33,7 +33,6 @@ const ChangePassword = () => {
     setSaving(true);
     try {
       const data = await changePassword({ currentPassword, newPassword });
-      // Backend blacklists the token and clears the cookie, so the session is over.
       setUser(null);
       navigate("/login", { replace: true, state: { message: data.message } });
     } catch (err) {

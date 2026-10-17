@@ -1,0 +1,250 @@
+/* =========================================================
+   Timesheet report page
+   ========================================================= */
+
+.report-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 100vh;
+  padding: 32px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* ---------- Header + KPIs ---------- */
+
+.report-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 24px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.report-header h1 {
+  margin: 0 0 6px;
+  color: var(--color-heading);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.report-header p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.report-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.report-kpi {
+  min-width: 130px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-kpi--billable {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.report-kpi--nonbillable {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.report-kpi-label {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.report-kpi-value {
+  color: var(--color-heading);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.report-kpi-sub {
+  color: var(--color-placeholder);
+  font-size: 11px;
+}
+
+/* ---------- Filters ---------- */
+
+.report-filters-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 24px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.report-filters-wrap .task-toolbar {
+  margin-bottom: 0;
+}
+
+/* ---------- Two-up grid ---------- */
+
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.report-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 22px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.report-card--billable {
+  border-top: 3px solid #22c55e;
+}
+
+.report-card--nonbillable {
+  border-top: 3px solid #f59e0b;
+}
+
+.report-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.report-card-header h2 {
+  margin: 0 0 4px;
+  color: var(--color-heading);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.report-card-header p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.report-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.report-badge {
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #f1f5f9;
+  color: var(--color-label);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.report-badge--hours {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* ---------- Summary bar ---------- */
+
+.report-summary {
+  /* Reuses .task-summary, just extra padding for standalone placement */
+  padding: 16px 20px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1100px) {
+  .report-container {
+    padding: 24px;
+  }
+
+  .report-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .report-container {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .report-header {
+    padding: 18px;
+  }
+
+  .report-header h1 {
+    font-size: 20px;
+  }
+
+  .report-kpis {
+    width: 100%;
+  }
+
+  .report-kpi {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+  }
+
+  .report-card {
+    padding: 16px;
+  }
+}
+
+/* Slightly different look for the "This week" quick-filter button */
+.list-filters-thisweek {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: transparent;
+}
+
+.list-filters-thisweek:hover {
+  background: #dbe5fb;
+  color: var(--color-primary);
+}
+
+/* Small pill showing the weekday name in the table */
+.task-day-chip {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: #f1f5f9;
+  color: var(--color-label);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
